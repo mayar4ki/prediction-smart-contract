@@ -1,2 +1,7 @@
 .deps
 .git
+
+# artifacts/cache/data
+artifacts
+cache
+
