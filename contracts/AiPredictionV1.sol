@@ -10,60 +10,73 @@ import {ContractGuard} from "./utils/ContractGuard.sol";
 contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
     // address of the admin
     address public adminAddress;
-
-    uint256 public minBetAmount; // min betting amount (wei)
+ 
     uint256 public houseFee; // house rate (e.g. 200 = 2%, 150 = 1.50%)
-    uint256 public housetreasuryAmount; // house treasury amount that was not claimed
+    uint256 public houseBalance; // house treasury amount that was not claimed
+
+    uint256 roundMasterFee;
 
     uint256 public constant MAX_HOUSE_FEE = 1000; // 10%
 
-    //  Reconrd<RoundID,Record<Address,BetInfo>>
-    mapping(uint256 => mapping(address => BetInfo)) public ledger;
+    uint256 public minBetAmount; // min betting amount (wei)
+
+    //  Reconrd<RoundID,Record<Address,Bet>>
+    mapping(uint256 => mapping(address => Bet)) public ledger;
 
     uint256 public roundIdCounter;
-    // Reconrd<RoundID,RoundInfo>
-    mapping(uint256 => RoundInfo) public rounds;
+    // Reconrd<RoundID,Round>
+    mapping(uint256 => Round) public rounds;
 
     enum BetOptions {
         Yes,
         No
     }
 
-    struct BetInfo {
+    struct Bet {
         BetOptions betOption;
         uint256 amount;
         bool claimed; // default false
     }
 
-    enum RoundResult {
-        TRUE,
-        INDETERMINATE,
-        FALSE
-    }
+    struct Round {
+        address master;
+        uint256 masterBalance;
 
-    struct RoundInfo {
-        uint256 lockTimestamp; // bet stop at
-        uint256 closeTimestamp; // bet result will be called at
-        uint256 yesAmount;
-        uint256 noAmount;
-        uint256 totalAmount;
         string prompt;
-        address createdBy;
-        RoundResult result;
+
+        uint256 lockTimestamp; // time bet will stop at 
+        uint256 closeTimestamp; // bet result will be released
+        
+        uint256 yesBetsVolume;
+        uint256 noBetsVolume;
+        uint256 totalVolume;
+
+        uint256 rewardBaseCall;
+  
+        BetOptions result;
     }
 
     event BetYes(address indexed sender, uint256 indexed roundId, uint256 amount);
     event BetNo(address indexed sender, uint256 indexed roundId, uint256 amount);
+    event RewardsCalculated(
+    uint256 indexed roundId,
+    uint256 rewardBaseCall,
+    uint256 totalVolume,
+    uint256 totalFees
+    );
+
 
     constructor(
-        address initialOwner,
+        address _ownerAddress,
         address _adminAddress,
         uint256 _minBetAmount,
         uint256 _houseFee
-    ) Ownable(initialOwner) {
+    ) Ownable(_ownerAddress) {
+
         adminAddress = _adminAddress;
         minBetAmount = _minBetAmount;
         houseFee = _houseFee;
+
     }
 
     function betYes(uint256 roundId) external payable nonReentrant notContract {
@@ -73,12 +86,12 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
 
         // Update round data
         uint256 amount = msg.value;
-        RoundInfo storage round = rounds[roundId];
-        round.totalAmount = round.totalAmount + amount;
-        round.yesAmount = round.yesAmount + amount;
+        Round storage round = rounds[roundId];
+        round.totalVolume = round.totalVolume + amount;
+        round.yesBetsVolume = round.yesBetsVolume + amount;
 
         // Update user data
-        BetInfo storage tmp = ledger[roundId][msg.sender];
+        Bet storage tmp = ledger[roundId][msg.sender];
         tmp.betOption = BetOptions.Yes;
         tmp.amount = amount;
 
@@ -92,12 +105,12 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
 
         // Update round data
         uint256 amount = msg.value;
-        RoundInfo storage round = rounds[roundId];
-        round.totalAmount = round.totalAmount + amount;
-        round.noAmount = round.noAmount + amount;
+        Round storage round = rounds[roundId];
+        round.totalVolume = round.totalVolume + amount;
+        round.noBetsVolume = round.noBetsVolume + amount;
 
         // Update user data
-        BetInfo storage tmp = ledger[roundId][msg.sender];
+        Bet storage tmp = ledger[roundId][msg.sender];
         tmp.betOption = BetOptions.No;
         tmp.amount = amount;
 
@@ -105,18 +118,27 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
     }
 
     function claim(uint256[] calldata roundIds) external nonReentrant notContract {
-        uint256 reward; // Initializes reward
+
+        uint256 reward = 0;
 
         for (uint256 i = 0; i < roundIds.length; i++) {
             uint256 roundId = roundIds[i];
 
-            require(ledger[roundId][msg.sender].amount > 0, "You have not bet in this round");
-            require(ledger[roundId][msg.sender].claimed == false, "You have already claimed this round");
-            require(rounds[roundId].closeTimestamp < block.timestamp, "Betting period has not ended");
+            Round memory round = rounds[roundId];
+            Bet memory bet = ledger[roundId][msg.sender];
 
-            /*
-         add value to reward 
-         */
+            require(bet.amount > 0, "You have not bet in this round");
+            require(bet.claimed == false, "You have already claimed this round");
+            require(round.closeTimestamp < block.timestamp, "Betting period has not ended");
+
+            if(round.result == bet.betOption){
+
+                reward = (bet.amount * round.totalVolume) / round.rewardBaseCall;
+
+                bet.claimed = true;
+            }
+
+      
         }
 
         if (reward > 0) {
@@ -124,18 +146,45 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
         }
     }
 
-    function createRounde(
-        string calldata _promt,
-        uint256 _lockTimestampByHours,
-        uint256 _closeTimestampByHours
-    ) external notContract {
-        require(_lockTimestampByHours < _closeTimestampByHours, "lockTimestamp must be less than closeTimestamp");
+    function _calculateRewards(uint256 roundId) internal {
+        require(rounds[roundId].rewardBaseCall == 0, "Rewards calculated");
+        
+        Round storage round = rounds[roundId];
 
-        RoundInfo storage round = rounds[roundIdCounter];
-        round.lockTimestamp = block.timestamp + (_lockTimestampByHours * (1 hours));
-        round.closeTimestamp = block.timestamp + (_closeTimestampByHours * (1 hours));
-        round.prompt = _promt;
-        round.createdBy = msg.sender;
+        houseBalance += (round.totalVolume * houseFee) / 10000;
+        round.masterBalance += (round.totalVolume * roundMasterFee) / 10000;
+
+        round.totalVolume = round.totalVolume - (houseBalance + round.masterBalance);
+
+        if(round.result == BetOptions.Yes){
+            round.rewardBaseCall = round.yesBetsVolume;
+        }else if(round.result == BetOptions.No){
+            round.rewardBaseCall = round.noBetsVolume;
+        }else {
+            round.rewardBaseCall = round.yesBetsVolume + round.noBetsVolume;
+        }
+
+        emit RewardsCalculated(roundId,round.rewardBaseCall,round.totalVolume,houseBalance);
+    }
+
+    /**
+     * @notice Create a new round
+     * @param _prompt: prompt for the round
+     * @param _lockTimestampByMinutes: time bet will stop at
+     * @param _closeTimestampByMinutes: bet result will be released
+     */
+    function createRounde(
+        string calldata _prompt,
+        uint256 _lockTimestampByMinutes,
+        uint256 _closeTimestampByMinutes
+    ) external notContract {
+        require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTimestamp must be less than closeTimestamp");
+
+        Round storage round = rounds[roundIdCounter];
+        round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
+        round.closeTimestamp = block.timestamp + (_closeTimestampByMinutes * (1 minutes));
+        round.prompt = _prompt;
+        round.master = msg.sender;
 
         roundIdCounter++;
     }
