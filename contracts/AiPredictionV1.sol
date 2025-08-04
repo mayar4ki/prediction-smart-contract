@@ -6,11 +6,9 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ContractGuard} from "./utils/ContractGuard.sol";
+import {AccessControl} from "./utils/AccessControl.sol";
 
-contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
-    
-    address public adminAddress; // address of the admin
- 
+contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
     uint256 public houseFee; // house rate (e.g. 200 = 2%, 150 = 1.50%)
     uint256 public houseBalance; // house treasury amount that was not claimed
     uint256 public roundMasterFee; // round creater fee (e.g. 200 = 2%, 150 = 1.50%)
@@ -39,30 +37,20 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
     struct Round {
         address master;
         uint256 masterBalance;
-
         string prompt;
-
-        uint256 lockTimestamp; // time bet will stop at 
+        uint256 lockTimestamp; // time bet will stop at
         uint256 closeTimestamp; // bet result will be released
-        
         uint256 yesBetsVolume;
         uint256 noBetsVolume;
         uint256 totalVolume;
-
         uint256 rewardBaseCall;
-  
         BetOptions result;
     }
 
     event BetYes(address indexed sender, uint256 indexed roundId, uint256 amount);
     event BetNo(address indexed sender, uint256 indexed roundId, uint256 amount);
-    event RewardsCalculated(
-    uint256 indexed roundId,
-    uint256 rewardBaseCall,
-    uint256 totalVolume,
-    uint256 totalFees
-    );
-
+    event NewOperationFees(uint256 houseFee, uint256 roundMasterFee);
+    event RewardsCalculated(uint256 indexed roundId, uint256 rewardBaseCall, uint256 totalVolume, uint256 totalFees);
 
     constructor(
         address _ownerAddress,
@@ -70,14 +58,21 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
         uint256 _minBetAmount,
         uint256 _houseFee,
         uint256 _roundMasterFee
-    ) Ownable(_ownerAddress) {
-        require((_houseFee+_roundMasterFee) <= MAX_OP_FEE, "Fee too high");
-
-        adminAddress = _adminAddress;
+    ) AccessControl(_ownerAddress, _adminAddress) {
+        require(_legitFees(_houseFee, _roundMasterFee), "Fee too high");
         minBetAmount = _minBetAmount;
         houseFee = _houseFee;
         roundMasterFee = _roundMasterFee;
+    }
 
+    /**
+     * @notice Set new fees
+     */
+    function setOperatingFees(uint256 _houseFee, uint256 _roundMasterFee) external whenPaused onlyAdmin {
+        require(_legitFees(_houseFee, _roundMasterFee), "Fee too high");
+        houseFee = _houseFee;
+        roundMasterFee = _roundMasterFee;
+        emit NewOperationFees(_houseFee, _roundMasterFee);
     }
 
     /**
@@ -139,11 +134,13 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
             Round memory round = rounds[roundId];
             Bet memory bet = ledger[roundId][msg.sender];
 
-            if(round.result == bet.betOption){
-                require(claimable(roundId,msg.sender), "You can't claim this round");
+            if (round.result == bet.betOption) {
+                require(claimable(roundId, msg.sender), "You can't claim this round");
                 reward += (bet.amount * round.totalVolume) / round.rewardBaseCall;
             }
-            
+
+            // todo handle refund
+
             bet.claimed = true;
         }
 
@@ -174,15 +171,14 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
         roundIdCounter++;
     }
 
-
     /**
      * @notice Determine if a round is valid for claiming rewards
      * @param roundId: ID of the round to check
      */
     function claimable(uint256 roundId, address user) public view returns (bool) {
         Round memory round = rounds[roundId];
-            Bet memory bet = ledger[roundId][user];
-            return (bet.amount > 0) && (bet.claimed == false) && (round.closeTimestamp < block.timestamp);
+        Bet memory bet = ledger[roundId][user];
+        return (bet.amount > 0) && (bet.claimed == false) && (round.closeTimestamp < block.timestamp);
     }
 
     /**
@@ -191,22 +187,22 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
      */
     function _calculateRewards(uint256 roundId) internal {
         require(rounds[roundId].rewardBaseCall == 0, "Rewards calculated");
-        
+
         Round storage round = rounds[roundId];
 
         houseBalance += (round.totalVolume * houseFee) / 10000;
         round.masterBalance += (round.totalVolume * roundMasterFee) / 10000;
         round.totalVolume = round.totalVolume - (houseBalance + round.masterBalance);
 
-        if(round.result == BetOptions.Yes){
+        if (round.result == BetOptions.Yes) {
             round.rewardBaseCall = round.yesBetsVolume;
-        }else if(round.result == BetOptions.No){
+        } else if (round.result == BetOptions.No) {
             round.rewardBaseCall = round.noBetsVolume;
-        }else {
+        } else {
             round.rewardBaseCall = round.yesBetsVolume + round.noBetsVolume;
         }
 
-        emit RewardsCalculated(roundId,round.rewardBaseCall,round.totalVolume,houseBalance);
+        emit RewardsCalculated(roundId, round.rewardBaseCall, round.totalVolume, houseBalance);
     }
 
     /**
@@ -218,6 +214,13 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
             rounds[roundId].lockTimestamp != 0 &&
             rounds[roundId].closeTimestamp != 0 &&
             block.timestamp < rounds[roundId].lockTimestamp;
+    }
+
+    /**
+     * @notice Determine if fees are valid
+     */
+    function _legitFees(uint256 _houseFee, uint256 _roundMasterFee) internal pure returns (bool) {
+        return _houseFee + _roundMasterFee <= MAX_OP_FEE;
     }
 
     /**
