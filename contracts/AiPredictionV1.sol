@@ -8,15 +8,13 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ContractGuard} from "./utils/ContractGuard.sol";
 
 contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
-    // address of the admin
-    address public adminAddress;
+    
+    address public adminAddress; // address of the admin
  
     uint256 public houseFee; // house rate (e.g. 200 = 2%, 150 = 1.50%)
     uint256 public houseBalance; // house treasury amount that was not claimed
-
-    uint256 roundMasterFee;
-
-    uint256 public constant MAX_HOUSE_FEE = 1000; // 10%
+    uint256 public roundMasterFee; // round creater fee (e.g. 200 = 2%, 150 = 1.50%)
+    uint256 public constant MAX_OP_FEE = 1000; // 10%
 
     uint256 public minBetAmount; // min betting amount (wei)
 
@@ -70,16 +68,23 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
         address _ownerAddress,
         address _adminAddress,
         uint256 _minBetAmount,
-        uint256 _houseFee
+        uint256 _houseFee,
+        uint256 _roundMasterFee
     ) Ownable(_ownerAddress) {
+        require((_houseFee+_roundMasterFee) <= MAX_OP_FEE, "Fee too high");
 
         adminAddress = _adminAddress;
         minBetAmount = _minBetAmount;
         houseFee = _houseFee;
+        roundMasterFee = _roundMasterFee;
 
     }
 
-    function betYes(uint256 roundId) external payable nonReentrant notContract {
+    /**
+     * @notice Bet on Yes
+     * @param roundId: roundId
+     */
+    function betYes(uint256 roundId) external payable nonReentrant whenNotPaused notContract {
         require(msg.value >= minBetAmount, "Bet amount must be greater than minBetAmount");
         require(ledger[roundId][msg.sender].amount == 0, "Can only bet once per round");
         require(_bettable(roundId), "Betting period has ended");
@@ -98,7 +103,11 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
         emit BetYes(msg.sender, roundId, amount);
     }
 
-    function betNo(uint256 roundId) external payable nonReentrant notContract {
+    /**
+     * @notice Bet on NO
+     * @param roundId: roundId
+     */
+    function betNo(uint256 roundId) external payable nonReentrant whenNotPaused notContract {
         require(msg.value >= minBetAmount, "Bet amount must be greater than minBetAmount");
         require(ledger[roundId][msg.sender].amount == 0, "Can only bet once per round");
         require(_bettable(roundId), "Betting period has ended");
@@ -117,8 +126,11 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
         emit BetNo(msg.sender, roundId, amount);
     }
 
+    /**
+     * @notice Claim rewards for the sender for the given roundIds
+     * @param roundIds: array of roundIds to claim rewards for
+     */
     function claim(uint256[] calldata roundIds) external nonReentrant notContract {
-
         uint256 reward = 0;
 
         for (uint256 i = 0; i < roundIds.length; i++) {
@@ -127,44 +139,17 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
             Round memory round = rounds[roundId];
             Bet memory bet = ledger[roundId][msg.sender];
 
-            require(bet.amount > 0, "You have not bet in this round");
-            require(bet.claimed == false, "You have already claimed this round");
-            require(round.closeTimestamp < block.timestamp, "Betting period has not ended");
-
             if(round.result == bet.betOption){
-
-                reward = (bet.amount * round.totalVolume) / round.rewardBaseCall;
-
-                bet.claimed = true;
+                require(claimable(roundId,msg.sender), "You can't claim this round");
+                reward += (bet.amount * round.totalVolume) / round.rewardBaseCall;
             }
-
-      
+            
+            bet.claimed = true;
         }
 
         if (reward > 0) {
             _safeTransfer(address(msg.sender), reward);
         }
-    }
-
-    function _calculateRewards(uint256 roundId) internal {
-        require(rounds[roundId].rewardBaseCall == 0, "Rewards calculated");
-        
-        Round storage round = rounds[roundId];
-
-        houseBalance += (round.totalVolume * houseFee) / 10000;
-        round.masterBalance += (round.totalVolume * roundMasterFee) / 10000;
-
-        round.totalVolume = round.totalVolume - (houseBalance + round.masterBalance);
-
-        if(round.result == BetOptions.Yes){
-            round.rewardBaseCall = round.yesBetsVolume;
-        }else if(round.result == BetOptions.No){
-            round.rewardBaseCall = round.noBetsVolume;
-        }else {
-            round.rewardBaseCall = round.yesBetsVolume + round.noBetsVolume;
-        }
-
-        emit RewardsCalculated(roundId,round.rewardBaseCall,round.totalVolume,houseBalance);
     }
 
     /**
@@ -177,7 +162,7 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
         string calldata _prompt,
         uint256 _lockTimestampByMinutes,
         uint256 _closeTimestampByMinutes
-    ) external notContract {
+    ) external whenNotPaused notContract {
         require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTimestamp must be less than closeTimestamp");
 
         Round storage round = rounds[roundIdCounter];
@@ -187,6 +172,41 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, Ownable, Pausable {
         round.master = msg.sender;
 
         roundIdCounter++;
+    }
+
+
+    /**
+     * @notice Determine if a round is valid for claiming rewards
+     * @param roundId: ID of the round to check
+     */
+    function claimable(uint256 roundId, address user) public view returns (bool) {
+        Round memory round = rounds[roundId];
+            Bet memory bet = ledger[roundId][user];
+            return (bet.amount > 0) && (bet.claimed == false) && (round.closeTimestamp < block.timestamp);
+    }
+
+    /**
+     * @notice Calculate the rewards for a round
+     * @param roundId: ID of the round to calculate rewards for
+     */
+    function _calculateRewards(uint256 roundId) internal {
+        require(rounds[roundId].rewardBaseCall == 0, "Rewards calculated");
+        
+        Round storage round = rounds[roundId];
+
+        houseBalance += (round.totalVolume * houseFee) / 10000;
+        round.masterBalance += (round.totalVolume * roundMasterFee) / 10000;
+        round.totalVolume = round.totalVolume - (houseBalance + round.masterBalance);
+
+        if(round.result == BetOptions.Yes){
+            round.rewardBaseCall = round.yesBetsVolume;
+        }else if(round.result == BetOptions.No){
+            round.rewardBaseCall = round.noBetsVolume;
+        }else {
+            round.rewardBaseCall = round.yesBetsVolume + round.noBetsVolume;
+        }
+
+        emit RewardsCalculated(roundId,round.rewardBaseCall,round.totalVolume,houseBalance);
     }
 
     /**
