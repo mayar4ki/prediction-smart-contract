@@ -5,10 +5,15 @@ pragma solidity >=0.8.2 <0.9.0;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import {AntiContractGuard} from "./utils/AntiContractGuard.sol";
 import {AdminACL} from "./utils/AdminACL.sol";
 
 contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
+    using SafeERC20 for IERC20;
+
     uint256 public houseFee; // house rate (e.g. 200 = 2%, 150 = 1.50%)
     uint256 public houseBalance; // house treasury amount that was not claimed
     uint256 public roundMasterFee; // round creater fee (e.g. 200 = 2%, 150 = 1.50%)
@@ -56,12 +61,14 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
     event BetYes(address indexed sender, uint256 indexed roundId, uint256 amount);
     event BetNo(address indexed sender, uint256 indexed roundId, uint256 amount);
     event NewOperationFees(uint256 houseFee, uint256 roundMasterFee);
+    event NewMinBetAmount(uint256 minBetAmount);
     event RewardsCalculated(
         uint256 indexed roundId,
         uint256 rewardBaseCall,
         uint256 totalVolume,
         uint256 totalFees
     );
+    event TokenRecovery(address indexed token, uint256 amount);
 
     constructor(
         address _ownerAddress,
@@ -84,6 +91,16 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
         houseFee = _houseFee;
         roundMasterFee = _roundMasterFee;
         emit NewOperationFees(_houseFee, _roundMasterFee);
+    }
+
+    /**
+     * @notice Set minBetAmount
+     * @dev Callable by admin
+     */
+    function setMinBetAmount(uint256 _minBetAmount) external whenPaused onlyAdmin {
+        require(_minBetAmount > 0, "minBetAmount too low");
+        minBetAmount = _minBetAmount;
+        emit NewMinBetAmount(minBetAmount);
     }
 
     /**
@@ -152,7 +169,7 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
             if (round.oracleCallStatus == OracleCallStatus.SUCCESS) {
                 require(claimable(roundId, msg.sender), "You can't claim this round");
                 reward += (bet.amount * round.totalVolume) / round.rewardBaseCall;
-            } 
+            }
             // Round invalid, refund bet amount
             else if (round.oracleCallStatus == OracleCallStatus.ERROR) {
                 require(refundable(roundId, msg.sender), "You can't claim this round");
@@ -217,7 +234,7 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
     function endRounde(uint256 roundId) external nonReentrant notContract {
         require(rounds[roundId].totalVolume > 0, "Not worth it");
 
-        //
+        // implement oracle 
     }
 
     /**
@@ -270,5 +287,15 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
     function _safeTransfer(address to, uint256 value) internal {
         (bool success, ) = to.call{value: value}("");
         require(success, "TransferHelper: TRANSFER_FAILED");
+    }
+
+    /**
+     * @notice allows to recover tokens sent to the contract by mistake
+     * @param _token: token address
+     * @param _amount: token amount
+     */
+    function recoverToken(address _token, uint256 _amount) external onlyOwner {
+        IERC20(_token).safeTransfer(address(msg.sender), _amount);
+        emit TokenRecovery(_token, _amount);
     }
 }
