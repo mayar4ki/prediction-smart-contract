@@ -5,7 +5,7 @@ pragma solidity >=0.8.2 <0.9.0;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-abstract contract AccessControl is Ownable, Pausable {
+abstract contract AdminACL is Ownable, Pausable {
     address private _admin; // address of the admin
 
     constructor(address _ownerAddress, address _adminAddress) Ownable(_ownerAddress) {

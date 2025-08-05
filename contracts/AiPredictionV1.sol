@@ -5,10 +5,10 @@ pragma solidity >=0.8.2 <0.9.0;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ContractGuard} from "./utils/ContractGuard.sol";
-import {AccessControl} from "./utils/AccessControl.sol";
+import {AntiContractGuard} from "./utils/AntiContractGuard.sol";
+import {AdminACL} from "./utils/AdminACL.sol";
 
-contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
+contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
     uint256 public houseFee; // house rate (e.g. 200 = 2%, 150 = 1.50%)
     uint256 public houseBalance; // house treasury amount that was not claimed
     uint256 public roundMasterFee; // round creater fee (e.g. 200 = 2%, 150 = 1.50%)
@@ -26,6 +26,11 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
     enum BetOptions {
         Yes,
         No
+    }
+    enum OracleCallStatus {
+        SUCCESS,
+        PENDING,
+        ERROR
     }
 
     struct Bet {
@@ -45,12 +50,18 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
         uint256 totalVolume;
         uint256 rewardBaseCall;
         BetOptions result;
+        OracleCallStatus oracleCallStatus; // default false
     }
 
     event BetYes(address indexed sender, uint256 indexed roundId, uint256 amount);
     event BetNo(address indexed sender, uint256 indexed roundId, uint256 amount);
     event NewOperationFees(uint256 houseFee, uint256 roundMasterFee);
-    event RewardsCalculated(uint256 indexed roundId, uint256 rewardBaseCall, uint256 totalVolume, uint256 totalFees);
+    event RewardsCalculated(
+        uint256 indexed roundId,
+        uint256 rewardBaseCall,
+        uint256 totalVolume,
+        uint256 totalFees
+    );
 
     constructor(
         address _ownerAddress,
@@ -58,7 +69,7 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
         uint256 _minBetAmount,
         uint256 _houseFee,
         uint256 _roundMasterFee
-    ) AccessControl(_ownerAddress, _adminAddress) {
+    ) AdminACL(_ownerAddress, _adminAddress) {
         require(_legitFees(_houseFee, _roundMasterFee), "Fee too high");
         minBetAmount = _minBetAmount;
         houseFee = _houseFee;
@@ -134,12 +145,19 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
             Round memory round = rounds[roundId];
             Bet memory bet = ledger[roundId][msg.sender];
 
-            if (round.result == bet.betOption) {
+            // Round validity is unknown yet
+            require(round.oracleCallStatus != OracleCallStatus.PENDING, "Oracle call is pending");
+
+            // Round valid for claiming rewards
+            if (round.oracleCallStatus == OracleCallStatus.SUCCESS) {
                 require(claimable(roundId, msg.sender), "You can't claim this round");
                 reward += (bet.amount * round.totalVolume) / round.rewardBaseCall;
+            } 
+            // Round invalid, refund bet amount
+            else if (round.oracleCallStatus == OracleCallStatus.ERROR) {
+                require(refundable(roundId, msg.sender), "You can't claim this round");
+                reward += (bet.amount * round.totalVolume) / round.rewardBaseCall;
             }
-
-            // todo handle refund
 
             bet.claimed = true;
         }
@@ -147,6 +165,31 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
         if (reward > 0) {
             _safeTransfer(address(msg.sender), reward);
         }
+    }
+
+    function refundable(uint256 roundId, address user) public view returns (bool) {
+        Round memory round = rounds[roundId];
+        Bet memory bet = ledger[roundId][user];
+        return
+            (bet.amount > 0) &&
+            (bet.claimed == false) &&
+            (round.closeTimestamp < block.timestamp) &&
+            (round.oracleCallStatus == OracleCallStatus.ERROR);
+    }
+
+    /**
+     * @notice Determine if a round is valid for claiming rewards
+     * @param roundId: ID of the round to check
+     */
+    function claimable(uint256 roundId, address user) public view returns (bool) {
+        Round memory round = rounds[roundId];
+        Bet memory bet = ledger[roundId][user];
+        return
+            (round.result == bet.betOption) &&
+            (bet.amount > 0) &&
+            (bet.claimed == false) &&
+            (round.closeTimestamp < block.timestamp) &&
+            (round.oracleCallStatus == OracleCallStatus.SUCCESS);
     }
 
     /**
@@ -160,7 +203,7 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
         uint256 _lockTimestampByMinutes,
         uint256 _closeTimestampByMinutes
     ) external whenNotPaused notContract {
-        require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTimestamp must be less than closeTimestamp");
+        require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTime must be less than closeTime");
 
         Round storage round = rounds[roundIdCounter];
         round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
@@ -171,14 +214,10 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
         roundIdCounter++;
     }
 
-    /**
-     * @notice Determine if a round is valid for claiming rewards
-     * @param roundId: ID of the round to check
-     */
-    function claimable(uint256 roundId, address user) public view returns (bool) {
-        Round memory round = rounds[roundId];
-        Bet memory bet = ledger[roundId][user];
-        return (bet.amount > 0) && (bet.claimed == false) && (round.closeTimestamp < block.timestamp);
+    function endRounde(uint256 roundId) external nonReentrant notContract {
+        require(rounds[roundId].totalVolume > 0, "Not worth it");
+
+        //
     }
 
     /**
@@ -199,6 +238,7 @@ contract AiPredictionV1 is ReentrancyGuard, ContractGuard, AccessControl {
         } else if (round.result == BetOptions.No) {
             round.rewardBaseCall = round.noBetsVolume;
         } else {
+            // round.result is empty => this happen when the oracle fail
             round.rewardBaseCall = round.yesBetsVolume + round.noBetsVolume;
         }
 

@@ -2,11 +2,7 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-abstract contract ContractGuard {
-
-       constructor() {
-    }
-
+abstract contract AntiContractGuard {
 
     modifier notContract() {
         require(!_isContract(msg.sender), "Contract not allowed");
