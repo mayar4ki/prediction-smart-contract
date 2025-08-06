@@ -6,7 +6,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 abstract contract AdminACL is Ownable, Pausable {
-    address private _admin; // address of the admin
+    address public _admin; // address of the admin
 
     constructor(address _ownerAddress, address _adminAddress) Ownable(_ownerAddress) {
         _admin = _adminAddress;

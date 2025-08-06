@@ -69,6 +69,8 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
         uint256 totalFees
     );
     event TokenRecovery(address indexed token, uint256 amount);
+    event HouseBalanceClaim(uint256 amount);
+    event MasterBalanceClaim(uint256 indexed roundId, uint256 amount);
 
     constructor(
         address _ownerAddress,
@@ -237,6 +239,17 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
         // implement oracle 
     }
 
+    function claimMasterBalance(uint256 roundId) external nonReentrant notContract {
+        require(rounds[roundId].masterBalance > 0, "you broke");
+
+        Round storage round = rounds[roundId];
+        uint256 currentMasterBlance = round.masterBalance;
+        round.masterBalance = 0;
+
+        _safeTransfer(round.master, currentMasterBlance);
+        emit MasterBalanceClaim(roundId,currentMasterBlance);
+    }
+
     /**
      * @notice Calculate the rewards for a round
      * @param roundId: ID of the round to calculate rewards for
@@ -298,4 +311,15 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
         IERC20(_token).safeTransfer(address(msg.sender), _amount);
         emit TokenRecovery(_token, _amount);
     }
+
+    /**
+     * @notice Claim all house balance
+     */
+    function claimHouseBlance() external nonReentrant onlyAdmin {
+        uint256 currentHouseBalance = houseBalance;
+        houseBalance = 0;
+        _safeTransfer(_admin, currentHouseBalance);
+        emit HouseBalanceClaim(currentHouseBalance);
+    }
+
 }
