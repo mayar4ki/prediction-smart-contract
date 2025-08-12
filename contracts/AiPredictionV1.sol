@@ -72,6 +72,15 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL {
     event HouseBalanceClaim(uint256 amount);
     event MasterBalanceClaim(uint256 indexed roundId, uint256 amount);
 
+
+    /**
+     * @notice Constructor
+     * @param _ownerAddress: owner address
+     * @param _adminAddress: admin address
+     * @param _minBetAmount: minimum bet amounts (in wei)
+     * @param _houseFee: house fee 
+     * @param _roundMasterFee: round creator fee
+     */
     constructor(
         address _ownerAddress,
         address _adminAddress,
