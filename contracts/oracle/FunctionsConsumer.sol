@@ -11,16 +11,6 @@ abstract contract FunctionsConsumer is FunctionsClient, JavascriptSource {
 
     bytes32 donID;
     uint32 callBackGasLimit;
-    
-    mapping(bytes32 => Response) public ledger;
-
-    struct Response {
-        bytes32 requestId;
-        bytes res;
-        bytes err;
-    }
-
-    event ResponseReceived(bytes32 indexed requestId, bytes response, bytes err);
 
     /**
      * @notice Initializes the contract with the Chainlink config
@@ -49,23 +39,5 @@ abstract contract FunctionsConsumer is FunctionsClient, JavascriptSource {
         // Send the request and store the reference ID
         bytes32 ref = _sendRequest(req.encodeCBOR(), subscriptionId, callBackGasLimit, donID);
         return ref;
-    }
-
-    /**
-     * @notice Callback function for fulfilling a request, Either response or error parameter will be set, but never both
-     * @param requestId The ID of the request to fulfill
-     * @param response The HTTP response data
-     * @param err Any errors from the Functions request
-     */
-    function fulfillRequest(
-        bytes32 requestId,
-        bytes memory response,
-        bytes memory err
-    ) internal override {
-        // Store the response in the ledger
-        ledger[requestId] = Response(requestId, response, err);
-
-        // Emit an event containing the response
-        emit ResponseReceived(requestId, response, err);
     }
 }

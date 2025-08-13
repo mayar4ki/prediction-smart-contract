@@ -4,7 +4,7 @@ pragma solidity >=0.8.2 <0.9.0;
 
 abstract contract JavascriptSource {
     // JS code goes here
-    string javascriptSourceCode =
+    string constant javascriptSourceCode =
         "const prompt = args[0]"
         "const apiResponse = await Functions.makeHttpRequest({"
         "    url: 'https://api.openai.com/v1/responses',"
@@ -25,7 +25,7 @@ abstract contract JavascriptSource {
         "                    properties: {"
         "                        answer: {"
         "                            type: 'string',"
-        "                            enum: ['yes', 'no', 'unknown'],"
+        "                            enum: ['YES', 'NO', 'unknown'],"
         "                        },"
         "                    },"
         "                    required: ['answer'],"
