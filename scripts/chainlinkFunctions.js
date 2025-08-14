@@ -20,15 +20,13 @@ const apiResponse = await Functions.makeHttpRequest({
       "id": "pmpt_689e252d9ba081948c781705febb11a205cedd72e412f82a",
       "version": "4"
     }
-  },
-  timeout: 9000
+  }
 });
 
 
 if (apiResponse.error || apiResponse?.data?.status !== 'completed') {
   return Functions.encodeString("ERR:api")
 }
-
 
 try {
   const output = apiResponse?.data?.output?.filter(e => e.role === "assistant");
