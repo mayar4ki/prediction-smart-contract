@@ -3,15 +3,12 @@
 pragma solidity >=0.8.2 <0.9.0;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import {FunctionsConsumer} from "./oracle/FunctionsConsumer.sol";
 import {AntiContractGuard} from "./utils/AntiContractGuard.sol";
 import {AdminACL} from "./utils/AdminACL.sol";
-
-import {FunctionsConsumer} from "./oracle/FunctionsConsumer.sol";
 
 contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, FunctionsConsumer {
     using SafeERC20 for IERC20;
