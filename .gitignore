@@ -1,8 +1,20 @@
-.deps
-.git
-.states
+# Node modules
+/node_modules
 
-# artifacts/cache/data
-artifacts
-cache
+# Compilation output
+/dist
 
+# pnpm deploy output
+/bundle
+
+# Hardhat Build Artifacts
+/artifacts
+
+# Hardhat compilation (v2) support directory
+/cache
+
+# Typechain output
+/types
+
+# Hardhat coverage reports
+/coverage

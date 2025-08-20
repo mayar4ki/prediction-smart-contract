@@ -1,118 +1,57 @@
-# AI Prediction Platform
+# Sample Hardhat 3 Beta Project (`node:test` and `viem`)
 
-A decentralized betting platform for AI predictions using Chainlink Functions for oracle services.
+This project showcases a Hardhat 3 Beta project using the native Node.js test runner (`node:test`) and the `viem` library for Ethereum interactions.
 
-## Overview
+To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
 
-This smart contract allows users to create and participate in prediction rounds where they can bet on yes/no outcomes for AI-related predictions. The platform uses Chainlink Functions to determine the outcomes, ensuring decentralized and reliable result verification.
+## Project Overview
 
-## Features
+This example project includes:
 
-- Create prediction rounds with customizable timeframes
-- Place bets on YES/NO outcomes
-- Automated result verification using Chainlink Functions
-- Fair reward distribution system
-- Anti-contract guard to prevent contract interactions
-- Configurable house and round master fees
-- Emergency pause functionality
-- Token recovery for accidentally sent tokens
-
-## Contract Details
-
-- Contract Name: `AiPredictionV1`
-- Built with Solidity >=0.8.2 <0.9.0
-- Uses OpenZeppelin contracts for security features
-
-### Key Components
-
-- **Round System**: Users can create rounds with specific prompts and timeframes
-- **Betting**: Users can bet on YES or NO outcomes
-- **Oracle Integration**: Uses Chainlink Functions for result verification
-- **Fee Structure**: Configurable house and round master fees
-- **Security**: Implements ReentrancyGuard and AntiContractGuard
-
-2. Fill in the environment variables in `.env`:
-
-   Required Parameters:
-   - `OWNER_ADDRESS`: The address that will own the contract
-   - `ADMIN_ADDRESS`: The address that will have admin privileges
-   - `ORACLE_ROUTER`: Chainlink Functions Router address for your network
-   - `ORACLE_DON_ID`: Chainlink DON ID for your network
-   - `PRIVATE_KEY`: Your wallet's private key (for deployment)
-
-   Optional Parameters (with defaults):
-   - `MIN_BET_AMOUNT`: Minimum bet amount in ETH (default: 0.01 ETH)
-   - `HOUSE_FEE`: House fee in basis points (default: 200 = 2%)
-   - `ROUND_MASTER_FEE`: Round master fee in basis points (default: 100 = 1%)
-   - `ORACLE_CALLBACK_GAS_LIMIT`: Gas limit for oracle callback (default: 300000)
-   - `ETHERSCAN_API_KEY`: For contract verification on Etherscan
-
-The deployment script will:
-- Validate all required environment variables
-- Deploy the AiPredictionV1 contract using Hardhat Ignition
-- Use environment variables for all parameters with fallback defaults
-- Verify the contract on Etherscan (if ETHERSCAN_API_KEY is provided)
-- Log all deployment parameters and configuration
-
-## Contract Parameters
-
-When deploying the contract, you'll need to provide:
-
-- Owner address
-- Admin address
-- Minimum bet amount
-- House fee (in basis points, e.g., 100 = 1%)
-- Round master fee (in basis points, e.g., 200 = 2%)
-- Oracle router address
-- Oracle DON ID
-- Oracle callback gas limit
+- A simple Hardhat configuration file.
+- Foundry-compatible Solidity unit tests.
+- TypeScript integration tests using [`node:test`](nodejs.org/api/test.html), the new Node.js native test runner, and [`viem`](https://viem.sh/).
+- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
 
 ## Usage
 
-### Creating a Round
+### Running Tests
 
-```solidity
-function createRounde(
-    string calldata _prompt,
-    uint256 _lockTimestampByMinutes,
-    uint256 _closeTimestampByMinutes
-)
+To run all the tests in the project, execute the following command:
+
+```shell
+npx hardhat test
 ```
 
-### Placing Bets
+You can also selectively run the Solidity or `node:test` tests:
 
-```solidity
-function betYes(uint256 roundId) // For betting YES
-function betNo(uint256 roundId)  // For betting NO
+```shell
+npx hardhat test solidity
+npx hardhat test nodejs
 ```
 
-### Claiming Rewards
+### Make a deployment to Sepolia
 
-```solidity
-function claim(uint256[] calldata roundIds)
+This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
+
+To run the deployment to a local chain:
+
+```shell
+npx hardhat ignition deploy ignition/modules/Counter.ts
 ```
 
-## Security Features
+To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
 
-- ReentrancyGuard for preventing reentrancy attacks
-- AntiContractGuard to prevent contract interactions
-- AdminACL for access control
-- Pausable for emergency stops
+You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
 
-## Fees
+To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
 
-- House Fee: Configurable (max 10%)
-- Round Master Fee: Configurable (max 10%)
-- Combined fees cannot exceed 10%
+```shell
+npx hardhat keystore set SEPOLIA_PRIVATE_KEY
+```
 
-## License
+After setting the variable, you can run the deployment with the Sepolia network:
 
-GPL-3.0
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
+```shell
+npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
+```
