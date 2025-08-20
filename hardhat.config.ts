@@ -1,7 +1,29 @@
 import type { HardhatUserConfig } from "hardhat/config";
-
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
-import { configVariable } from "hardhat/config";
+import { NetworkUserConfig } from "hardhat/types/config";
+
+
+const avalancheMainnet: NetworkUserConfig = {
+  type: "http",
+  url: "https://api.avax.network/ext/bc/C/rpc",
+  chainId: 43114,
+  accounts: [process.env.AVALANCHE_MAINNET_PRIVATE_KEY!],
+};
+
+const avalancheFujiTestnet: NetworkUserConfig = {
+  type: "http",
+  url: "https://avalanche-fuji.therpc.io/",
+  chainId: 43113,
+  accounts: [process.env.AVALANCHE_FUJI_TESTNET_PRIVATE_KEY!],
+};
+
+const sepolia: NetworkUserConfig = {
+  type: "http",
+  chainType: "l1",
+  url: "https://rpc.sepolia.org/",
+  accounts: [process.env.SEPOLIA_PRIVATE_KEY!],
+};
+
 
 const config: HardhatUserConfig = {
   plugins: [hardhatToolboxViemPlugin],
@@ -22,20 +44,15 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    hardhatMainnet: {
-      type: "edr-simulated",
-      chainType: "l1",
-    },
-    hardhatOp: {
-      type: "edr-simulated",
-      chainType: "op",
-    },
-    sepolia: {
-      type: "http",
-      chainType: "l1",
-      url: configVariable("SEPOLIA_RPC_URL"),
-      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
-    },
+    sepolia,
+    avalancheMainnet,
+    avalancheFujiTestnet,
+  },
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts",
   },
 };
 
