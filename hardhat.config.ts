@@ -1,6 +1,7 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { NetworkUserConfig } from "hardhat/types/config";
+import hardhatVerify from "@nomicfoundation/hardhat-verify";
 
 
 const avalancheMainnet: NetworkUserConfig = {
@@ -26,7 +27,7 @@ const sepolia: NetworkUserConfig = {
 
 
 const config: HardhatUserConfig = {
-  plugins: [hardhatToolboxViemPlugin],
+  plugins: [hardhatToolboxViemPlugin, hardhatVerify],
   solidity: {
     profiles: {
       default: {
@@ -46,7 +47,7 @@ const config: HardhatUserConfig = {
   networks: {
     sepolia,
     avalancheMainnet,
-    avalancheFujiTestnet,
+    avalancheFujiTestnet
   },
   paths: {
     sources: "./contracts",
@@ -54,6 +55,14 @@ const config: HardhatUserConfig = {
     cache: "./cache",
     artifacts: "./artifacts",
   },
+  verify: {
+    etherscan: {
+      apiKey: ''
+    },
+    blockscout: {
+      enabled: false,
+    },
+  }
 };
 
 export default config;

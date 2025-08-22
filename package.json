@@ -23,6 +23,9 @@
     "deploy:sepolia": "dotenv -e .env.eth.sepolia -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network sepolia",
     "deploy:avax:main": "dotenv -e .env.avax.mainnet -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network avalancheMainnet",
     "deploy:avax:test": "dotenv -e .env.avax.testnet -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network avalancheFujiTestnet",
+    "verify:avax:test": "dotenv -e .env.avax.testnet -- hardhat verify --network avalancheFujiTestnet",
+    "flatten:avax:test": "dotenv -e .env.avax.testnet -- hardhat flatten contracts/AiPredictionV1.sol >> contracts/flatten_AiPredictionV1.sol",
+    "flatten:deploy:avax:test": "dotenv -e .env.avax.testnet -- hardhat ignition deploy ignition/modules/flatten_AiPredictionV1.ts --network avalancheFujiTestnet",
     "visualize": "hardhat ignition visualize ./ignition/modules/AiPredictionV1.ts"
   },
   "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
