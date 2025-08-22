@@ -7,21 +7,21 @@ const avalancheMainnet: NetworkUserConfig = {
   type: "http",
   url: "https://api.avax.network/ext/bc/C/rpc",
   chainId: 43114,
-  accounts: [process.env.AVALANCHE_MAINNET_PRIVATE_KEY!],
+  accounts: [process.env.ACCOUNT_PRIVATE_KEY!],
 };
 
 const avalancheFujiTestnet: NetworkUserConfig = {
   type: "http",
-  url: "https://avalanche-fuji.therpc.io/",
+  url: "https://api.avax-test.network/ext/bc/C/rpc",
   chainId: 43113,
-  accounts: [process.env.AVALANCHE_FUJI_TESTNET_PRIVATE_KEY!],
+  accounts: [process.env.ACCOUNT_PRIVATE_KEY!]
 };
 
 const sepolia: NetworkUserConfig = {
   type: "http",
   chainType: "l1",
   url: "https://rpc.sepolia.org/",
-  accounts: [process.env.SEPOLIA_PRIVATE_KEY!],
+  accounts: [process.env.ACCOUNT_PRIVATE_KEY!],
 };
 
 

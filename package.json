@@ -4,17 +4,30 @@
   "type": "module",
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.0",
+    "@nomicfoundation/hardhat-ignition-viem": "^3.0.0",
+    "@nomicfoundation/hardhat-keystore": "^3.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.0",
+    "@nomicfoundation/hardhat-node-test-runner": "^3.0.0",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^3.0.0",
+    "@nomicfoundation/hardhat-viem": "^3.0.0",
+    "@nomicfoundation/hardhat-viem-assertions": "^3.0.0",
     "@types/node": "^22.17.2",
+    "dotenv-cli": "^10.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.0.0",
     "typescript": "~5.8.0",
     "viem": "^2.34.0"
   },
   "scripts": {
-    "deploy:sepolia": "hardhat run scripts/AiPredictionV1.ts --network sepolia",
-    "deploy": "hardhat run scripts/AiPredictionV1.ts",
+    "deploy:sepolia": "dotenv -e .env.eth.sepolia -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network sepolia",
+    "deploy:avax:main": "dotenv -e .env.avax.mainnet -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network avalancheMainnet",
+    "deploy:avax:test": "dotenv -e .env.avax.testnet -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network avalancheFujiTestnet",
     "visualize": "hardhat ignition visualize ./ignition/modules/AiPredictionV1.ts"
   },
-  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610"
+  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
+  "dependencies": {
+    "@chainlink/contracts": "^1.4.0",
+    "@openzeppelin/contracts": "^5.4.0"
+  }
 }
