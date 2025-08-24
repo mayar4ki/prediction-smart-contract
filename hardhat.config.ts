@@ -20,10 +20,12 @@ const avalancheFujiTestnet: NetworkUserConfig = {
 
 const sepolia: NetworkUserConfig = {
   type: "http",
-  chainType: "l1",
-  url: "https://rpc.sepolia.org/",
+  url: "https://eth-sepolia.g.alchemy.com/v2/2CCqO_DGktbmCx7UKFGKt",
+  chainId: 11155111,
   accounts: [process.env.ACCOUNT_PRIVATE_KEY!],
 };
+
+
 
 
 const config: HardhatUserConfig = {
@@ -57,12 +59,13 @@ const config: HardhatUserConfig = {
   },
   verify: {
     etherscan: {
-      apiKey: ''
+      apiKey: process.env.ETHERSCAN_API_KEY || "",
     },
     blockscout: {
       enabled: false,
     },
-  }
-};
 
+  },
+
+};
 export default config;

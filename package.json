@@ -20,13 +20,12 @@
     "viem": "^2.34.0"
   },
   "scripts": {
-    "deploy:sepolia": "dotenv -e .env.eth.sepolia -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network sepolia",
-    "deploy:avax:main": "dotenv -e .env.avax.mainnet -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network avalancheMainnet",
-    "deploy:avax:test": "dotenv -e .env.avax.testnet -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network avalancheFujiTestnet",
-    "verify:avax:test": "dotenv -e .env.avax.testnet -- hardhat verify --network avalancheFujiTestnet",
-    "flatten:avax:test": "dotenv -e .env.avax.testnet -- hardhat flatten contracts/AiPredictionV1.sol >> contracts/flatten_AiPredictionV1.sol",
-    "flatten:deploy:avax:test": "dotenv -e .env.avax.testnet -- hardhat ignition deploy ignition/modules/flatten_AiPredictionV1.ts --network avalancheFujiTestnet",
-    "visualize": "hardhat ignition visualize ./ignition/modules/AiPredictionV1.ts"
+    "deploy:avax:test": "dotenv -e .env.avax.testnet -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network avalancheFujiTestnet --deployment-id avax-fuji-testnet",
+    "verify:avax:test": "node scripts/generateArgs.cjs ignition/deployments/avax-fuji-testnet/journal.jsonl && dotenv -e .env.avax.testnet -- hardhat verify --network avalancheFujiTestnet --constructor-args-path ignition/deployments/avax-fuji-testnet/constructor-args.ts",
+    "deploy:sepolia": "dotenv -e .env.eth.sepolia -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network sepolia --deployment-id sepolia-testnet",
+    "verify:sepolia": "node scripts/generateArgs.cjs ignition/deployments/sepolia-testnet/journal.jsonl && dotenv -e .env.eth.sepolia -- hardhat verify --network sepolia --constructor-args-path ignition/deployments/sepolia-testnet/constructor-args.ts",
+    "visualize": "hardhat ignition visualize ./ignition/modules/AiPredictionV1.ts",
+    "clear": "rm -rf cache/ artifacts/ ignition/deployments/"
   },
   "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
   "dependencies": {
