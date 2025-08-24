@@ -1,57 +1,79 @@
-# Sample Hardhat 3 Beta Project (`node:test` and `viem`)
 
-This project showcases a Hardhat 3 Beta project using the native Node.js test runner (`node:test`) and the `viem` library for Ethereum interactions.
+# Hardhat 3 Beta Project (`node:test` and `viem`)
 
-To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+## AI Prediction Smart Contract
+A decentralized AI prediction platform built on Ethereum using Chainlink Functions to enable secure and transparent AI-powered predictions on-chain.
+
+## Environment Setup
+
+The project uses environment files for configuration. A template file `.env.example` is provided with all required and optional parameters.
+
+Required Parameters:
+- `OWNER_ADDRESS` - The address that will own the contract
+- `ADMIN_ADDRESS` - The address that will have admin privileges
+- `ORACLE_ROUTER` - Chainlink Functions Router address for your network
+- `ORACLE_DON_ID` - Chainlink DON ID for your network
+- `ORACLE_SUBSCRIPTION_ID` - Chainlink Subscription ID for your network
+
+
+Optional Parameters (with defaults):
+- `MIN_BET_AMOUNT` - Minimum bet amount in ETH (default: 0.01 ETH)
+- `HOUSE_FEE` - House fee in basis points (default: 100 = 1%)
+- `ROUND_MASTER_FEE` - Round master fee in basis points (default: 200 = 2%)
+- `ORACLE_CALLBACK_GAS_LIMIT` - Gas limit for oracle callback (default: 300000)
+
+To set up your environment:
+1. Copy `.env.example` to `.env.eth.sepolia` for Sepolia deployment
+2. Copy `.env.example` to `.env.avax.testnet` for Avalanche Fuji deployment
+3. Fill in the required parameters in the respective environment file
+
+## Available Scripts
+
+```bash
+# Deployment Scripts
+yarn deploy:sepolia      # Deploy to Ethereum Sepolia testnet
+yarn deploy:avax:test    # Deploy to Avalanche Fuji testnet
+
+# Contract Verification
+yarn verify:sepolia <contract_address>     # Verify contract on Sepolia
+yarn verify:avax:test <contract_address>   # Verify contract on Avalanche Fuji
+
+# Other Utilities
+yarn visualize          # Visualize the deployment graph
+yarn clear             # Clear deployment artifacts and cache
+```
 
 ## Project Overview
 
-This example project includes:
+This project implements a smart contract system that allows users to interact with AI models through blockchain technology. It uses Chainlink Functions to securely bridge the gap between on-chain and off-chain AI computations.
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using [`node:test`](nodejs.org/api/test.html), the new Node.js native test runner, and [`viem`](https://viem.sh/).
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+Key Features:
+- Smart contract-based prediction system
+- Integration with Chainlink Functions for off-chain AI computations
+- Admin access control system
+- Anti-contract guard protection
+- Secure handling of predictions and results
 
-## Usage
+## Technical Stack
 
-### Running Tests
+- Solidity >=0.8.2
+- Hardhat Development Environment
+- Chainlink Functions
+- OpenZeppelin Contracts
+  - ReentrancyGuard
+  - IERC20/SafeERC20
+  - AccessControl
 
-To run all the tests in the project, execute the following command:
+## Smart Contracts
 
-```shell
-npx hardhat test
-```
+- `AiPredictionV1.sol`: Main prediction contract
+- `AdminACL.sol`: Access control management
+- `AntiContractGuard.sol`: Protection against contract-based interactions
+- `JavascriptSource.sol`: Chainlink Function code
 
-You can also selectively run the Solidity or `node:test` tests:
+## Security Features
 
-```shell
-npx hardhat test solidity
-npx hardhat test nodejs
-```
-
-### Make a deployment to Sepolia
-
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
-
-To run the deployment to a local chain:
-
-```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
-```
-
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
-
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
-
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
-
-```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
-```
-
-After setting the variable, you can run the deployment with the Sepolia network:
-
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
-```
+- ReentrancyGuard protection against reentrancy attacks
+- Anti-contract measures to prevent contract-based interactions
+- Admin access control for privileged operations
+- Safe ERC20 token handling
