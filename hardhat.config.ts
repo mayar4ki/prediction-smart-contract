@@ -47,9 +47,9 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    sepolia,
-    avalancheMainnet,
-    avalancheFujiTestnet
+    // sepolia,
+    // avalancheMainnet,
+    // avalancheFujiTestnet
   },
   paths: {
     sources: "./contracts",

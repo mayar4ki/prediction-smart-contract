@@ -5,34 +5,35 @@ pragma solidity >=0.8.2 <0.9.0;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-import {FunctionsConsumer} from "./oracle/FunctionsConsumer.sol";
+import {JavascriptSource} from "./utils/JavascriptSource.sol";
 import {AntiContractGuard} from "./utils/AntiContractGuard.sol";
 import {AdminACL} from "./utils/AdminACL.sol";
 
-contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, FunctionsConsumer {
+contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, FunctionsClient, JavascriptSource {
     using SafeERC20 for IERC20;
+
+    using FunctionsRequest for FunctionsRequest.Request;
+    bytes32 oracleDonID;
+    uint32 oracleCallBackGasLimit;
+    uint64 oracleSubscriptionId;
+    mapping(bytes32 => uint256) public requestsLedger; // requestId -> roundId
 
     uint256 public houseFee; // house rate (e.g. 200 = 2%, 150 = 1.50%)
     uint256 public houseBalance; // house treasury amount that was not claimed
-    uint256 public roundMasterFee; // round creater fee (e.g. 200 = 2%, 150 = 1.50%)
-    uint256 public constant MAX_OP_FEE = 1000; // 10%
-
+    uint256 public roundMasterFee; // round creator fee (e.g. 200 = 2%, 150 = 1.50%)
     uint256 public minBetAmount; // min betting amount (wei)
 
-    //  Record<RoundID,Record<Address,Bet>>
-    mapping(uint256 => mapping(address => Bet)) public betsLedger;
+    uint256 public constant MAX_OP_FEE = 1000; // 10%
+    bytes32 public constant BET_OPTION_YES = keccak256(abi.encodePacked(bytes32("YES")));
+    bytes32 public constant BET_OPTION_NO = keccak256(abi.encodePacked(bytes32("NO")));
 
-    // Record<RequestID,RoundID>
-    mapping(bytes32 => uint256) public requestsLedger;
-
-    uint256 public roundIdCounter;
-
-    // Record<RoundID,Round>
-    mapping(uint256 => Round) public rounds;
-
-    bytes32 constant BET_OPTION_YES = keccak256(abi.encodePacked(bytes32("YES")));
-    bytes32 constant BET_OPTION_NO = keccak256(abi.encodePacked(bytes32("NO")));
+    uint256 public roundIdCounter; // counter for round ids
+    mapping(uint256 => Round) public rounds; // roundId -> Round
+    mapping(uint256 => mapping(address => Bet)) public betsLedger; // roundId -> map(userAddress -> Bet)
 
     struct Bet {
         bytes32 betOption;
@@ -57,18 +58,23 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
 
     event BetYes(address indexed sender, uint256 indexed roundId, uint256 amount);
     event BetNo(address indexed sender, uint256 indexed roundId, uint256 amount);
+
     event NewOperationFees(uint256 houseFee, uint256 roundMasterFee);
+    event NewOracleSubscriptionId(uint64 newId);
     event NewMinBetAmount(uint256 minBetAmount);
+
+    event HouseBalanceClaim(uint256 amount);
+    event MasterBalanceClaim(uint256 indexed roundId, uint256 amount);
     event RewardsCalculated(
         uint256 indexed roundId,
         uint256 rewardBaseCall,
         uint256 totalVolume,
         uint256 totalFees
     );
-    event TokenRecovery(address indexed token, uint256 amount);
-    event HouseBalanceClaim(uint256 amount);
-    event MasterBalanceClaim(uint256 indexed roundId, uint256 amount);
+
+    event OracleRequestSent(bytes32 indexed requestId, bytes response, bytes err);
     event OracleResponseReceived(bytes32 indexed requestId, bytes response, bytes err);
+    event TokenRecovery(address indexed token, uint256 amount);
 
     /**
      * @notice Constructor
@@ -80,6 +86,7 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
      * @param _oracleRouter: Check to get the router address for your supported network https://docs.chain.link/chainlink-functions/supported-networks
      * @param _oracleDonID: DON ID - Check to get the donID for your supported network https://docs.chain.link/chainlink-functions/supported-networks
      * @param _oracleCallBackGasLimit: Callback function for fulfilling a request
+     * @param _oracleSubscriptionId: The ID for the Chainlink subscription
      */
     constructor(
         address _ownerAddress,
@@ -89,15 +96,16 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
         uint256 _roundMasterFee,
         address _oracleRouter,
         bytes32 _oracleDonID,
-        uint32 _oracleCallBackGasLimit
-    )
-        AdminACL(_ownerAddress, _adminAddress)
-        FunctionsConsumer(_oracleRouter, _oracleDonID, _oracleCallBackGasLimit)
-    {
-        require(_legitFees(_houseFee, _roundMasterFee), "Fee too high");
+        uint32 _oracleCallBackGasLimit,
+        uint64 _oracleSubscriptionId
+    ) AdminACL(_ownerAddress, _adminAddress) FunctionsClient(_oracleRouter) {
+        require(_legitFees(_houseFee, _roundMasterFee), "fee too high");
         minBetAmount = _minBetAmount;
         houseFee = _houseFee;
         roundMasterFee = _roundMasterFee;
+        oracleDonID = _oracleDonID;
+        oracleCallBackGasLimit = _oracleCallBackGasLimit;
+        oracleSubscriptionId = _oracleSubscriptionId;
     }
 
     /**
@@ -111,13 +119,45 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
     }
 
     /**
-     * @notice Set minBetAmount
+     * @notice Set new minBetAmount
      * @dev Callable by admin
      */
     function setMinBetAmount(uint256 _minBetAmount) external whenPaused onlyAdmin {
         require(_minBetAmount > 0, "minBetAmount too low");
         minBetAmount = _minBetAmount;
         emit NewMinBetAmount(minBetAmount);
+    }
+
+    /**
+     * @notice Set new oracleSubscriptionId
+     * @dev Callable by admin
+     */
+    function setOracleSubscriptionId(uint64 _oracleSubscriptionId) external whenPaused onlyAdmin {
+        require(_oracleSubscriptionId != 0, "invalid subscription id");
+        oracleSubscriptionId = _oracleSubscriptionId;
+        emit NewOracleSubscriptionId(oracleSubscriptionId);
+    }
+
+    /**
+     * @notice Create a new betting round
+     * @param _prompt: prompt for the round
+     * @param _lockTimestampByMinutes: time bet will stop at
+     * @param _closeTimestampByMinutes: bet result will be released
+     */
+    function createRound(
+        string calldata _prompt,
+        uint256 _lockTimestampByMinutes,
+        uint256 _closeTimestampByMinutes
+    ) external whenNotPaused notContract {
+        require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTime must be less than closeTime");
+
+        Round storage round = rounds[roundIdCounter];
+        round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
+        round.closeTimestamp = block.timestamp + (_closeTimestampByMinutes * (1 minutes));
+        round.prompt = _prompt;
+        round.master = msg.sender;
+
+        roundIdCounter++;
     }
 
     /**
@@ -167,6 +207,31 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
     }
 
     /**
+     * @notice End round and request result from oracle
+     * @param roundId: roundId
+     */
+    function endRound(uint256 roundId) external nonReentrant notContract {
+        require(rounds[roundId].totalVolume > 0, "not worth it");
+        require(rounds[roundId].closeTimestamp < block.timestamp, "round didn't end");
+        require(rounds[roundId].oracleRequestId == bytes32(0), "oracle called already");
+
+        Round storage round = rounds[roundId];
+
+        string[] memory args = new string[](2);
+        args[0] = round.prompt;
+        args[1] = Strings.toString(round.closeTimestamp);
+
+        // send request to oracle
+        bytes32 requestId = sendRequest(args);
+
+        // update round data
+        round.oracleRequestId = requestId;
+
+        // update requestsLedger
+        requestsLedger[requestId] = roundId;
+    }
+
+    /**
      * @notice Claim rewards for the sender for the given roundIds
      * @param roundIds: array of roundIds to claim rewards for
      */
@@ -202,6 +267,10 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
         }
     }
 
+    /**
+     * @notice Determine if a round is valid for refunding bets
+     * @param roundId: ID of the round to check
+     */
     function refundable(uint256 roundId, address user) public view returns (bool) {
         Round memory round = rounds[roundId];
         Bet memory bet = betsLedger[roundId][user];
@@ -228,44 +297,41 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
     }
 
     /**
-     * @notice Create a new round
-     * @param _prompt: prompt for the round
-     * @param _lockTimestampByMinutes: time bet will stop at
-     * @param _closeTimestampByMinutes: bet result will be released
+     * @notice Claim all master balance
      */
-    function createRounde(
-        string calldata _prompt,
-        uint256 _lockTimestampByMinutes,
-        uint256 _closeTimestampByMinutes
-    ) external whenNotPaused notContract {
-        require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTime must be less than closeTime");
+    function claimMasterBalance(uint256 roundId) external nonReentrant notContract {
+        require(rounds[roundId].masterBalance > 0, "you broke");
 
-        Round storage round = rounds[roundIdCounter];
-        round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
-        round.closeTimestamp = block.timestamp + (_closeTimestampByMinutes * (1 minutes));
-        round.prompt = _prompt;
-        round.master = msg.sender;
+        Round storage round = rounds[roundId];
+        uint256 currentMasterBalance = round.masterBalance;
+        round.masterBalance = 0;
 
-        roundIdCounter++;
+        _safeTransfer(round.master, currentMasterBalance);
+        emit MasterBalanceClaim(roundId, currentMasterBalance);
     }
 
-    function endRounde(
-        uint256 roundId,
-        uint64 subscriptionId,
-        string[] calldata args
-    ) external nonReentrant notContract {
-        require(rounds[roundId].totalVolume > 0, "Not worth it");
-        require(rounds[roundId].closeTimestamp < block.timestamp, "round didn't end");
-        require(rounds[roundId].oracleRequestId == bytes32(0), "Already called oracle");
+    /**
+     * @notice Claim all house balance
+     */
+    function claimHouseBalance() external nonReentrant onlyAdmin {
+        uint256 currentHouseBalance = houseBalance;
+        houseBalance = 0;
+        _safeTransfer(_admin, currentHouseBalance);
+        emit HouseBalanceClaim(currentHouseBalance);
+    }
 
-        // make request
-        bytes32 requestId = sendRequest(subscriptionId, args);
-
-        // update round data
-        rounds[roundId].oracleRequestId = requestId;
-
-        // update requestsLedger
-        requestsLedger[requestId] = roundId;
+    /**
+     * @notice Sends an HTTP request
+     * @param args The arguments to pass to the HTTP request
+     * @return requestId The ID of the request
+     */
+    function sendRequest(string[] memory args) internal returns (bytes32 requestId) {
+        FunctionsRequest.Request memory req;
+        req.initializeRequestForInlineJavaScript(javascriptSourceCode); // Initialize the request with JS code
+        req.setArgs(args); // Set the arguments for the request
+        // Send the request and store the reference ID
+        bytes32 ref = _sendRequest(req.encodeCBOR(), oracleSubscriptionId, oracleCallBackGasLimit, oracleDonID);
+        return ref;
     }
 
     /**
@@ -274,49 +340,19 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
      * @param response The HTTP response data
      * @param err Any errors from the Functions request
      */
-    function fulfillRequest(
-        bytes32 requestId,
-        bytes memory response,
-        bytes memory err
-    ) internal override {
+    function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
         uint256 roundId = requestsLedger[requestId];
 
         if (err.length > 0) {
-            rounds[roundId].err = err;
+            rounds[roundId].err = err; // In case of error, store the error
         } else {
-            // Proceed with response hash it
-            rounds[roundId].result = keccak256(response);
+            rounds[roundId].result = keccak256(response); // Proceed with response hash it
         }
 
-        // calculate results
-        _calculateRewards(roundId);
+        _calculateRewards(roundId); // calculate results
 
         // Emit an event containing the response
         emit OracleResponseReceived(requestId, response, err);
-    }
-
-    /**
-     * @notice Claim all master balance
-     */
-    function claimMasterBalance(uint256 roundId) external nonReentrant notContract {
-        require(rounds[roundId].masterBalance > 0, "you broke");
-
-        Round storage round = rounds[roundId];
-        uint256 currentMasterBlance = round.masterBalance;
-        round.masterBalance = 0;
-
-        _safeTransfer(round.master, currentMasterBlance);
-        emit MasterBalanceClaim(roundId, currentMasterBlance);
-    }
-
-    /**
-     * @notice Claim all house balance
-     */
-    function claimHouseBlance() external nonReentrant onlyAdmin {
-        uint256 currentHouseBalance = houseBalance;
-        houseBalance = 0;
-        _safeTransfer(_admin, currentHouseBalance);
-        emit HouseBalanceClaim(currentHouseBalance);
     }
 
     /**
