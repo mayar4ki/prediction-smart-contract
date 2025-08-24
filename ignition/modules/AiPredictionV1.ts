@@ -22,6 +22,7 @@ export default buildModule("AiPredictionV1Module", (m) => {
 
   const _oracleRouter = process.env.ORACLE_ROUTER;
   const _oracleDonID = process.env.ORACLE_DON_ID;
+  const _oracleSubscriptionId = process.env.ORACLE_SUBSCRIPTION_ID;
 
   const _oracleCallBackGasLimit = process?.env?.ORACLE_CALLBACK_GAS_LIMIT ?? config.ORACLE_CALLBACK_GAS_LIMIT;
   const _minBetAmount = process?.env?.MIN_BET_AMOUNT ?? config.MIN_BET_AMOUNT;
@@ -30,7 +31,7 @@ export default buildModule("AiPredictionV1Module", (m) => {
 
 
 
-  if (!_ownerAddress || !_adminAddress || !_minBetAmount || !_houseFee || !_roundMasterFee || !_oracleRouter || !_oracleDonID || !_oracleCallBackGasLimit) {
+  if (!_ownerAddress || !_adminAddress || !_minBetAmount || !_houseFee || !_roundMasterFee || !_oracleRouter || !_oracleDonID || !_oracleCallBackGasLimit || !_oracleSubscriptionId) {
     throw new Error("Missing environment variables for AiPredictionV1Module");
   }
 
@@ -46,7 +47,8 @@ export default buildModule("AiPredictionV1Module", (m) => {
     m.getParameter("_roundMasterFee", _roundMasterFee),
     m.getParameter("_oracleRouter", _oracleRouter),
     m.getParameter("_oracleDonID", _oracleDonID),
-    m.getParameter("_oracleCallBackGasLimit", _oracleCallBackGasLimit)
+    m.getParameter("_oracleCallBackGasLimit", _oracleCallBackGasLimit),
+    m.getParameter("_oracleSubscriptionId", _oracleSubscriptionId),
   ]);
 
   return { aiPredictionV1 };
