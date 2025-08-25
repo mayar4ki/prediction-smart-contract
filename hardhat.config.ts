@@ -20,7 +20,7 @@ const avalancheFujiTestnet: NetworkUserConfig = {
 
 const sepolia: NetworkUserConfig = {
   type: "http",
-  url: "https://eth-sepolia.g.alchemy.com/v2/2CCqO_DGktbmCx7UKFGKt",
+  url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
   chainId: 11155111,
   accounts: [process.env.ACCOUNT_PRIVATE_KEY!],
 };

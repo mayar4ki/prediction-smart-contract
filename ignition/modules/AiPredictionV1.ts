@@ -1,19 +1,6 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { parseEther, zeroAddress } from 'viem';
 
-export interface NetworkConfig {
-  MIN_BET_AMOUNT: string;             // Default: 0.01 ETH
-  HOUSE_FEE: string;                  // Default: 100 (1%)
-  ROUND_MASTER_FEE: string;          // Default: 200 (2%)
-  ORACLE_CALLBACK_GAS_LIMIT: string; // Default: 300000
-}
-
-export const config: NetworkConfig = {
-  MIN_BET_AMOUNT: '0.01',
-  HOUSE_FEE: '100',
-  ROUND_MASTER_FEE: '200',
-  ORACLE_CALLBACK_GAS_LIMIT: '300000',
-};
 
 export default buildModule("AiPredictionV1Module", (m) => {
 
@@ -24,10 +11,10 @@ export default buildModule("AiPredictionV1Module", (m) => {
   const _oracleDonID = process.env.ORACLE_DON_ID;
   const _oracleSubscriptionId = process.env.ORACLE_SUBSCRIPTION_ID;
 
-  const _oracleCallBackGasLimit = process?.env?.ORACLE_CALLBACK_GAS_LIMIT ?? config.ORACLE_CALLBACK_GAS_LIMIT;
-  const _minBetAmount = process?.env?.MIN_BET_AMOUNT ?? config.MIN_BET_AMOUNT;
-  const _houseFee = process?.env?.HOUSE_FEE ?? config.HOUSE_FEE;
-  const _roundMasterFee = process?.env?.ROUND_MASTER_FEE ?? config.ROUND_MASTER_FEE;
+  const _oracleCallBackGasLimit = process?.env?.ORACLE_CALLBACK_GAS_LIMIT;
+  const _minBetAmount = process?.env?.MIN_BET_AMOUNT;
+  const _houseFee = process?.env?.HOUSE_FEE;
+  const _roundMasterFee = process?.env?.ROUND_MASTER_FEE;
 
 
 
