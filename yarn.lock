@@ -1336,13 +1336,6 @@
   dependencies:
     "@nomicfoundation/hardhat-errors" "^3.0.0"
 
-"@nomicfoundation/hardhat-ignition-viem@^3.0.0":
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/@nomicfoundation/hardhat-ignition-viem/-/hardhat-ignition-viem-3.0.0.tgz#d1be18ef80c4e04d748735437714808fa2d4f760"
-  integrity sha512-xvV51jHzR3ZumwSFlv0GxP0YOW2leuFf32Yv+l3upglZuxIBjJ9+VOXzHGuGmUTE7tJ51MaGuqRyJ44kb93raQ==
-  dependencies:
-    "@nomicfoundation/hardhat-errors" "^3.0.0"
-
 "@nomicfoundation/hardhat-ignition@^3.0.0":
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/@nomicfoundation/hardhat-ignition/-/hardhat-ignition-3.0.0.tgz#0c7b1e863c18bd97beb8fb9b9d56784e60586f69"
