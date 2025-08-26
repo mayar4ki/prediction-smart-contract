@@ -20,7 +20,6 @@
   },
   "scripts": {
     "deploy:sepolia": "dotenv -e .env.eth.sepolia -- hardhat run scripts/deploy.ts --network sepolia",
-    "deploy2:sepolia": "dotenv -e .env.eth.sepolia -- hardhat ignition deploy ignition/modules/AiPredictionV1.ts --network sepolia",
     "verify:sepolia": "node scripts/generateArgs.cjs ignition/deployments/sepolia/journal.jsonl && dotenv -e .env.eth.sepolia -- hardhat verify --network sepolia --constructor-args-path ignition/deployments/sepolia/constructor-args.ts",
     "visualize": "hardhat ignition visualize ./ignition/modules/AiPredictionV1.ts",
     "clear": "rm -rf cache/ artifacts/ ignition/deployments/"
