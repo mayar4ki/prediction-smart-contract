@@ -6,7 +6,7 @@ export default buildModule("AiPredictionV1Module", (m) => {
   const _ownerAddress = process.env.OWNER_ADDRESS;
   const _adminAddress = process.env.ADMIN_ADDRESS;
 
-  const _oracleRouter = process.env.ORACLE_ROUTER;
+  const _oracleRouter = process.env.ORACLE_FUNCTIONS_ROUTER;
   const _oracleDonID = process.env.ORACLE_DON_ID;
   const _oracleSubscriptionId = process.env.ORACLE_SUBSCRIPTION_ID;
 

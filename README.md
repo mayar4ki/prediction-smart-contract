@@ -11,7 +11,7 @@ The project uses environment files for configuration. A template file `.env.exam
 Required Parameters:
 - `OWNER_ADDRESS` - The address that will own the contract
 - `ADMIN_ADDRESS` - The address that will have admin privileges
-- `ORACLE_ROUTER` - Chainlink Functions Router address for your network
+- `ORACLE_FUNCTIONS_ROUTER` - Chainlink Functions Router address for your network
 - `ORACLE_DON_ID` - Chainlink DON ID for your network
 - `ORACLE_SUBSCRIPTION_ID` - Chainlink Subscription ID for your network
 

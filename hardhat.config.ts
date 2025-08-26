@@ -21,8 +21,8 @@ const avalancheFujiTestnet: NetworkUserConfig = {
 
 const sepolia: NetworkUserConfig = {
   type: "http",
-  url: `https://eth-sepolia.g.alchemy.com/v2/`,
-  chainId: 11155111,
+  url: configVariable("CHAIN_RPC_URL"),
+  chainId: +process.env.CHAIN_ID!,
   accounts: [configVariable("ACCOUNT_PRIVATE_KEY")]
 };
 
