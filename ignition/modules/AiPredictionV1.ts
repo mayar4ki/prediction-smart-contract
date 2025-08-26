@@ -1,6 +1,5 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { parseEther, zeroAddress } from 'viem';
-
+import { parseEther, ZeroAddress } from "ethers";
 
 export default buildModule("AiPredictionV1Module", (m) => {
 
@@ -22,8 +21,8 @@ export default buildModule("AiPredictionV1Module", (m) => {
     throw new Error("Missing environment variables for AiPredictionV1Module");
   }
 
-  if (_ownerAddress === zeroAddress || _adminAddress === zeroAddress) {
-    throw new Error("Owner and Admin addresses cannot be zero address");
+  if (_ownerAddress === ZeroAddress || _adminAddress === ZeroAddress || _oracleRouter === ZeroAddress) {
+    throw new Error("Owner, Admin and router addresses cannot be zero address");
   }
 
   const aiPredictionV1 = m.contract("AiPredictionV1", [
