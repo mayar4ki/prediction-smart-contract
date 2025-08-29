@@ -9,11 +9,19 @@ import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/l
 import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+import {ChainLinkRequestFeeEstimator} from "./utils/ChainLinkRequestFeeEstimator.sol";
 import {JavascriptSource} from "./utils/JavascriptSource.sol";
 import {AntiContractGuard} from "./utils/AntiContractGuard.sol";
 import {AdminACL} from "./utils/AdminACL.sol";
 
-contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, FunctionsClient, JavascriptSource {
+contract AiPredictionV1 is
+    ReentrancyGuard,
+    AntiContractGuard,
+    AdminACL,
+    FunctionsClient,
+    JavascriptSource,
+    ChainLinkRequestFeeEstimator
+{
     using SafeERC20 for IERC20;
 
     using FunctionsRequest for FunctionsRequest.Request;
@@ -87,6 +95,7 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
      * @param _oracleDonID: DON ID - Check to get the donID for your supported network https://docs.chain.link/chainlink-functions/supported-networks
      * @param _oracleCallBackGasLimit: Callback function for fulfilling a request
      * @param _oracleSubscriptionId: The ID for the Chainlink subscription
+     * @param _oracleAggregatorV3PriceFeed: LINK/ETH price feed address - Check to get the price feed address for your supported network https://docs.chain.link/data-feeds/price-feeds/addresses
      */
     constructor(
         address _ownerAddress,
@@ -97,8 +106,13 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
         address _oracleRouter,
         bytes32 _oracleDonID,
         uint32 _oracleCallBackGasLimit,
-        uint64 _oracleSubscriptionId
-    ) AdminACL(_ownerAddress, _adminAddress) FunctionsClient(_oracleRouter) {
+        uint64 _oracleSubscriptionId,
+        address _oracleAggregatorV3PriceFeed
+    )
+        AdminACL(_ownerAddress, _adminAddress)
+        FunctionsClient(_oracleRouter)
+        ChainLinkRequestFeeEstimator(_oracleRouter, _oracleAggregatorV3PriceFeed)
+    {
         require(_legitFees(_houseFee, _roundMasterFee), "fee too high");
         minBetAmount = _minBetAmount;
         houseFee = _houseFee;
@@ -148,14 +162,20 @@ contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, Functio
         string calldata _prompt,
         uint256 _lockTimestampByMinutes,
         uint256 _closeTimestampByMinutes
-    ) external whenNotPaused notContract {
+    ) external payable whenNotPaused notContract nonReentrant {
         require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTime must be less than closeTime");
+        require(bytes(_prompt).length > 0, "prompt must be set");
+        uint256 roundCost = estimateEtherFee(uint256(300000)); // estimate cost with 300k gas limit
+        roundCost = (roundCost * 110) / 100; // add 10% extra gas to be sure
+        require(msg.value >= roundCost, "not enough eth to cover oracle fees");
 
         Round storage round = rounds[roundIdCounter];
         round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
         round.closeTimestamp = block.timestamp + (_closeTimestampByMinutes * (1 minutes));
         round.prompt = _prompt;
         round.master = msg.sender;
+
+        houseBalance += roundCost;
 
         roundIdCounter++;
     }
