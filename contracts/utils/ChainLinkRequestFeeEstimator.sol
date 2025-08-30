@@ -4,25 +4,24 @@ pragma solidity >=0.8.2 <0.9.0;
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
+struct FunctionsCoordinatorConfig {
+    uint64 maxCallbackGasLimit;
+    uint32 gasOverhead;
+    uint32 requestTimeoutSeconds;
+    uint64 fulfillmentFlatFeeLinkPPMTier1;
+    uint64 fulfillmentFlatFeeLinkPPMTier2;
+    uint64 fulfillmentFlatFeeLinkPPMTier3;
+    uint64 fulfillmentFlatFeeLinkPPMTier4;
+    uint64 fulfillmentFlatFeeLinkPPMTier5;
+    uint24 reqsForTier2;
+    uint24 reqsForTier3;
+    uint24 reqsForTier4;
+    uint24 reqsForTier5;
+    address priceFeed;
+}
+
 interface IFunctionsCoordinator {
-    function getConfig()
-        external
-        view
-        returns (
-            uint64 maxCallbackGasLimit,
-            uint32 gasOverhead,
-            uint32 requestTimeoutSeconds,
-            uint64 fulfillmentFlatFeeLinkPPMTier1,
-            uint64 fulfillmentFlatFeeLinkPPMTier2,
-            uint64 fulfillmentFlatFeeLinkPPMTier3,
-            uint64 fulfillmentFlatFeeLinkPPMTier4,
-            uint64 fulfillmentFlatFeeLinkPPMTier5,
-            uint24 reqsForTier2,
-            uint24 reqsForTier3,
-            uint24 reqsForTier4,
-            uint24 reqsForTier5,
-            address priceFeed
-        );
+    function getConfig() external view returns (FunctionsCoordinatorConfig memory);
 }
 
 interface IGasPriceOracle {
@@ -51,8 +50,8 @@ abstract contract ChainLinkRequestFeeEstimator {
         (, int256 price, , , ) = dataFeed.latestRoundData();
         uint256 linkPerNative = uint256(price); // 1e18 format
 
-        (, uint32 gasOverhead, , uint64 fulfillmentFlatFeeLinkPPMTier1, , , , , , , , , ) = coordinator
-            .getConfig();
+        uint64 fulfillmentFlatFeeLinkPPMTier1 = _getFulfillmentFlatFeeLinkPPMTier1();
+        uint32 gasOverhead = _getGasOverhead();
 
         uint256 baseFeeGwei = block.basefee / 1 gwei; // returns 30 Gwei
         uint256 overestimatedGasPrice = (baseFeeGwei * (12)) / 10; // 20% buffer e.g. 36 Gwei
@@ -81,8 +80,8 @@ abstract contract ChainLinkRequestFeeEstimator {
         (, int256 price, , , ) = dataFeed.latestRoundData();
         uint256 linkPerNative = uint256(price); // 1e18 format
 
-        (, uint32 gasOverhead, , uint64 fulfillmentFlatFeeLinkPPMTier1, , , , , , , , , ) = coordinator
-            .getConfig();
+        uint64 fulfillmentFlatFeeLinkPPMTier1 = _getFulfillmentFlatFeeLinkPPMTier1();
+        uint32 gasOverhead = _getGasOverhead();
 
         uint256 baseFeeGwei = block.basefee / 1 gwei; // returns 30 Gwei
         uint256 overestimatedGasPrice = (baseFeeGwei * (12)) / 10; // 20% buffer e.g. 36 Gwei
@@ -101,5 +100,15 @@ abstract contract ChainLinkRequestFeeEstimator {
         uint256 totalRequestCost = gasCostInETH + premiumFeesInETH;
 
         return totalRequestCost;
+    }
+
+    function _getFulfillmentFlatFeeLinkPPMTier1() private view returns (uint64) {
+        FunctionsCoordinatorConfig memory res = coordinator.getConfig();
+        return res.fulfillmentFlatFeeLinkPPMTier1;
+    }
+
+    function _getGasOverhead() private view returns (uint32) {
+        FunctionsCoordinatorConfig memory res = coordinator.getConfig();
+        return res.gasOverhead;
     }
 }

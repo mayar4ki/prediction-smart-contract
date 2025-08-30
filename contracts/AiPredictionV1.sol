@@ -25,8 +25,8 @@ contract AiPredictionV1 is
     using SafeERC20 for IERC20;
 
     using FunctionsRequest for FunctionsRequest.Request;
-    bytes32 oracleDonID;
-    uint32 oracleCallBackGasLimit;
+    bytes32 immutable oracleDonID;
+    uint32 immutable oracleCallBackGasLimit;
     uint64 oracleSubscriptionId;
     mapping(bytes32 => uint256) public requestsLedger; // requestId -> roundId
 
@@ -88,9 +88,11 @@ contract AiPredictionV1 is
      * @notice Constructor
      * @param _ownerAddress: owner address
      * @param _adminAddress: admin address
+     *
      * @param _minBetAmount: minimum bet amounts (in wei)
      * @param _houseFee: house fee
      * @param _roundMasterFee: round creator fee
+     *
      * @param _oracleRouter: Check to get the router address for your supported network https://docs.chain.link/chainlink-functions/supported-networks
      * @param _oracleDonID: DON ID - Check to get the donID for your supported network https://docs.chain.link/chainlink-functions/supported-networks
      * @param _oracleCallBackGasLimit: Callback function for fulfilling a request
@@ -165,9 +167,9 @@ contract AiPredictionV1 is
     ) external payable whenNotPaused notContract nonReentrant {
         require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTime must be less than closeTime");
         require(bytes(_prompt).length > 0, "prompt must be set");
-        uint256 roundCost = estimateEtherFee(uint256(300000)); // estimate cost with 300k gas limit
-        roundCost = (roundCost * 110) / 100; // add 10% extra gas to be sure
-        require(msg.value >= roundCost, "not enough eth to cover oracle fees");
+        // uint256 roundCost = estimateEtherFee(uint256(300000)); // estimate cost with 300k gas limit
+        // roundCost = (roundCost * 110) / 100; // add 10% extra gas to be sure
+        // require(msg.value >= roundCost, "not enough eth to cover oracle fees");
 
         Round storage round = rounds[roundIdCounter];
         round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
@@ -175,7 +177,7 @@ contract AiPredictionV1 is
         round.prompt = _prompt;
         round.master = msg.sender;
 
-        houseBalance += roundCost;
+        // houseBalance += roundCost;
 
         roundIdCounter++;
     }
