@@ -24,3 +24,5 @@
 .env
 .env.avax.*
 .env.eth.sepolia
+
+.deps
