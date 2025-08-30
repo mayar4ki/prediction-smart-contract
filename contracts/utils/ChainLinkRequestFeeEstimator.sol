@@ -24,10 +24,6 @@ interface IFunctionsCoordinator {
     function getConfig() external view returns (FunctionsCoordinatorConfig memory);
 }
 
-interface IGasPriceOracle {
-    function latestAnswer() external view returns (int256);
-}
-
 abstract contract ChainLinkRequestFeeEstimator {
     AggregatorV3Interface public immutable dataFeed;
     IFunctionsCoordinator public immutable coordinator;

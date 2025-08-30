@@ -4,26 +4,25 @@ import { NetworkUserConfig } from "hardhat/types/config";
 import hardhatVerify from "@nomicfoundation/hardhat-verify";
 import { configVariable } from "hardhat/config";
 
+// const avalancheMainnet: NetworkUserConfig = {
+//   type: "http",
+//   url: "https://api.avax.network/ext/bc/C/rpc",
+//   chainId: 43114,
+//   accounts: [configVariable("ACCOUNT_PRIVATE_KEY")],
+// };
 
-const avalancheMainnet: NetworkUserConfig = {
-  type: "http",
-  url: "https://api.avax.network/ext/bc/C/rpc",
-  chainId: 43114,
-  accounts: [configVariable("ACCOUNT_PRIVATE_KEY")],
-};
-
-const avalancheFujiTestnet: NetworkUserConfig = {
-  type: "http",
-  url: "https://api.avax-test.network/ext/bc/C/rpc",
-  chainId: 43113,
-  accounts: [configVariable("ACCOUNT_PRIVATE_KEY")]
-};
+// const avalancheFujiTestnet: NetworkUserConfig = {
+//   type: "http",
+//   url: "https://api.avax-test.network/ext/bc/C/rpc",
+//   chainId: 43113,
+//   accounts: [configVariable("ACCOUNT_PRIVATE_KEY")]
+// };
 
 const sepolia: NetworkUserConfig = {
   type: "http",
-  url: configVariable("CHAIN_RPC_URL"),
+  url: process.env.CHAIN_RPC_URL!,
   chainId: +process.env.CHAIN_ID!,
-  accounts: [configVariable("ACCOUNT_PRIVATE_KEY")]
+  accounts: [process.env.ACCOUNT_PRIVATE_KEY!]
 };
 
 
@@ -33,6 +32,12 @@ const config: HardhatUserConfig = {
     profiles: {
       default: {
         version: "0.8.28",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          }
+        },
       },
       production: {
         version: "0.8.28",
@@ -40,7 +45,7 @@ const config: HardhatUserConfig = {
           optimizer: {
             enabled: true,
             runs: 200,
-          },
+          }
         },
       },
     },
