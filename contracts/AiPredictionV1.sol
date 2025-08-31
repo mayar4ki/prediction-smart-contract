@@ -25,9 +25,9 @@ contract AiPredictionV1 is
     using SafeERC20 for IERC20;
     using FunctionsRequest for FunctionsRequest.Request;
 
-    bytes32 immutable private oracleDonID;
-    uint32 immutable private oracleCallBackGasLimit;
-    uint64 private oracleSubscriptionId;
+    bytes32 public immutable oracleDonID;
+    uint32 public immutable oracleCallBackGasLimit;
+    uint64 public oracleSubscriptionId;
 
     mapping(bytes32 => uint256) public requestsLedger; // requestId -> roundId
 
@@ -140,7 +140,7 @@ contract AiPredictionV1 is
      * @dev Callable by admin
      */
     function setMinBetAmount(uint256 _minBetAmount) external whenPaused onlyAdmin {
-        require(_minBetAmount > 0, "minBetAmount too low");
+        require(_minBetAmount > 0, "amount too low");
         minBetAmount = _minBetAmount;
         emit NewMinBetAmount(minBetAmount);
     }
@@ -150,7 +150,7 @@ contract AiPredictionV1 is
      * @dev Callable by admin
      */
     function setOracleSubscriptionId(uint64 _oracleSubscriptionId) external whenPaused onlyAdmin {
-        require(_oracleSubscriptionId != 0, "invalid subscription id");
+        require(_oracleSubscriptionId != 0, "invalid id");
         oracleSubscriptionId = _oracleSubscriptionId;
         emit NewOracleSubscriptionId(oracleSubscriptionId);
     }
@@ -167,7 +167,7 @@ contract AiPredictionV1 is
         uint256 _closeTimestampByMinutes
     ) external payable whenNotPaused notContract nonReentrant {
         require(_lockTimestampByMinutes < _closeTimestampByMinutes, "invalid timestamp");
-        require(bytes(_prompt).length > 0, "prompt must be set");
+        require(bytes(_prompt).length > 0, "prompt required");
         uint256 roundCost = estimateEtherFee(uint256(300000)); // estimate cost with 300k gas limit
         roundCost = (roundCost * 110) / 100; // add 10% extra gas to be sure
         require(msg.value >= roundCost, "oracle fee not covered");
@@ -189,8 +189,8 @@ contract AiPredictionV1 is
      */
     function betYes(uint256 roundId) external payable nonReentrant whenNotPaused notContract {
         require(msg.value >= minBetAmount, "bet is less than minBet");
-        require(betsLedger[roundId][msg.sender].amount == 0, "Can only bet once per round");
-        require(_bettable(roundId), "Betting period has ended");
+        require(betsLedger[roundId][msg.sender].amount == 0, "can only bet once per round");
+        require(_bettable(roundId), "bet period has ended");
 
         // Update round data
         uint256 amount = msg.value;
@@ -212,8 +212,8 @@ contract AiPredictionV1 is
      */
     function betNo(uint256 roundId) external payable nonReentrant whenNotPaused notContract {
         require(msg.value >= minBetAmount, "bet is less than minBet");
-        require(betsLedger[roundId][msg.sender].amount == 0, "Can only bet once per round");
-        require(_bettable(roundId), "Betting period has ended");
+        require(betsLedger[roundId][msg.sender].amount == 0, "can only bet once per round");
+        require(_bettable(roundId), "bet period has ended");
 
         // Update round data
         uint256 amount = msg.value;
@@ -268,17 +268,17 @@ contract AiPredictionV1 is
             Bet memory bet = betsLedger[roundId][msg.sender];
 
             // Round validity is unknown yet
-            require(round.oracleRequestId != bytes32(0), "Oracle isn't called");
-            require(roundsLedger[roundId].rewardBaseCall > 0, "Rewards aren't calculated");
+            require(round.oracleRequestId != bytes32(0), "oracle not called");
+            require(roundsLedger[roundId].rewardBaseCall > 0, "rewards not calculated");
 
             // Round valid for claiming rewards
             if (round.result == bet.betOption) {
-                require(claimable(roundId, msg.sender), "You can't claim this round");
+                require(claimable(roundId, msg.sender), "can't claim this round");
                 reward += (bet.amount * round.totalVolume) / round.rewardBaseCall;
             }
             // Round invalid, refund bet amount
             else if (round.err.length > 0) {
-                require(refundable(roundId, msg.sender), "You can't claim this round");
+                require(refundable(roundId, msg.sender), "can't claim this round");
                 reward += (bet.amount * round.totalVolume) / round.rewardBaseCall;
             }
 
@@ -323,7 +323,7 @@ contract AiPredictionV1 is
      * @notice Claim all master balance
      */
     function claimMasterBalance(uint256 roundId) external nonReentrant notContract {
-        require(roundsLedger[roundId].masterBalance > 0, "you broke");
+        require(roundsLedger[roundId].masterBalance > 0, "no balance");
 
         Round storage round = roundsLedger[roundId];
         uint256 currentMasterBalance = round.masterBalance;
@@ -383,7 +383,7 @@ contract AiPredictionV1 is
      * @param roundId: ID of the round to calculate rewards for
      */
     function _calculateRewards(uint256 roundId) internal {
-        require(roundsLedger[roundId].rewardBaseCall == 0, "Rewards calculated");
+        require(roundsLedger[roundId].rewardBaseCall == 0, "already calculated");
 
         Round storage round = roundsLedger[roundId];
 

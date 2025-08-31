@@ -51,7 +51,7 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    // sepolia,
+    sepolia,
     // avalancheMainnet,
     // avalancheFujiTestnet
   },

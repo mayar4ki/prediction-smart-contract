@@ -26,14 +26,17 @@ async function main() {
         functionsRouterAddress: env.ORACLE_FUNCTIONS_ROUTER,
     });
 
+    console.log(`🚀 Initializing ChainLink Subscription Manager...`);
     await subscriptionManager.initialize();
+    console.log(`✅ Initialized successfully \n`);
 
-    console.log(`✅ ChainLink Subscription Manager initialized`);
 
+    console.log(`🚀 Creating ChainLink Subscription...`);
     const subscriptionId: number = await subscriptionManager.createSubscription({});
-
     console.log(`✅ ChainLink Subscription Created id:${subscriptionId} \n`);
 
+
+    console.log(`🚀 Deploying contract...`);
     const { aiPredictionV1 } = await connection.ignition.deploy(buildModule("AiPredictionV1Module", (m) => {
 
         const aiPredictionV1 = m.contract("AiPredictionV1", [
@@ -63,12 +66,12 @@ async function main() {
 
     console.log(`✅ Contract deployed address: ${aiPredictionV1Address} \n`);
 
-    console.log(`🚀 Add Contract to Subscription...`);
+    console.log(`🚀 Add Contract to ChainLink Subscription...`);
     const addConsumerTxReceipt = await subscriptionManager.addConsumer({
         subscriptionId,
         consumerAddress: aiPredictionV1Address,
     });
-    console.log(`✅ Contract added to Subscription ID:${subscriptionId} - tx hash: ${addConsumerTxReceipt.transactionHash} \n\n`);
+    console.log(`✅ Contract added to Subscription ID:${subscriptionId} - tx hash: ${addConsumerTxReceipt.transactionHash} \n`);
 
 
     console.log(`🚀 Uploading secrets to DON...`);
@@ -91,7 +94,7 @@ async function main() {
         encryptedSecretsHexstring: encryptedSecretsObj.encryptedSecrets,
         gatewayUrls: (env.ORACLE_ENCRYPTED_SECRETS_UPLOAD_ENDPOINTS!).split(','),
         slotId: 0,
-        minutesUntilExpiration: 10080,
+        minutesUntilExpiration: 60,
     });
 
     if (!success) {
@@ -99,8 +102,22 @@ async function main() {
     }
 
     if (success) {
-        console.log(`✅ Secrets Uploaded successfully version:${version}`);
+        console.log(`✅ Secrets Uploaded successfully version:${version} \n`);
     }
+
+
+    console.log(`💸💸Funding Chain link subscription with ${env.ORACLE_SUBSCRIPTION_INITIAL_FUND} LINK ...`);
+    const juelsAmount = BigInt(env.ORACLE_SUBSCRIPTION_INITIAL_FUND) * BigInt(10 ** 18);
+    const fundSubscriptionRes = await subscriptionManager.fundSubscription({
+        subscriptionId,
+        juelsAmount,
+    });
+    console.log(`✅ subscription is funded tx: ${fundSubscriptionRes.transactionHash} \n`);
+
+    console.log(`------------Deployment-Info------------`);
+    console.log(`contract address: ${aiPredictionV1Address}`)
+    console.log(`secrets version:${version}`);
+    console.log(`subscription ID: ${subscriptionId}`);
 
 }
 

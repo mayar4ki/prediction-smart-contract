@@ -31,15 +31,15 @@ export const envValidationSchema = z.object({
     ORACLE_DON_ID: donID,
     ORACLE_FUN_DON_ID: functionDonId,
 
-    ORACLE_SUBSCRIPTION_ID: z.coerce.number().int().positive().transform(e => +e),
     ORACLE_AGGREGATOR_V3_PRICE_FEED: ethAddress,
     LINK_TOKEN_ADDRESS: ethAddress,
 
     // Game Config
     MIN_BET_AMOUNT: z.coerce.number().positive(),
-    HOUSE_FEE: z.coerce.number().int().min(0).max(1000).transform(e => +e),
-    ROUND_MASTER_FEE: z.coerce.number().int().min(0).max(1000).transform(e => +e),
+    HOUSE_FEE: z.coerce.number().int().min(0).max(1000),
+    ROUND_MASTER_FEE: z.coerce.number().int().min(0).max(1000),
     ORACLE_CALLBACK_GAS_LIMIT: z.coerce.number().int().positive(),
+    ORACLE_SUBSCRIPTION_INITIAL_FUND: z.coerce.number().int().positive(),
 
     // Network Config
     CHAIN_RPC_URL: url,
