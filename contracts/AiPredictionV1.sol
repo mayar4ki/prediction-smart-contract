@@ -23,11 +23,12 @@ contract AiPredictionV1 is
     ChainLinkRequestFeeEstimator
 {
     using SafeERC20 for IERC20;
-
     using FunctionsRequest for FunctionsRequest.Request;
-    bytes32 immutable oracleDonID;
-    uint32 immutable oracleCallBackGasLimit;
-    uint64 oracleSubscriptionId;
+
+    bytes32 immutable private oracleDonID;
+    uint32 immutable private oracleCallBackGasLimit;
+    uint64 private oracleSubscriptionId;
+
     mapping(bytes32 => uint256) public requestsLedger; // requestId -> roundId
 
     uint256 public houseFee; // house rate (e.g. 200 = 2%, 150 = 1.50%)
@@ -40,7 +41,7 @@ contract AiPredictionV1 is
     bytes32 public constant BET_OPTION_NO = keccak256(abi.encodePacked(bytes32("NO")));
 
     uint256 public roundIdCounter; // counter for round ids
-    mapping(uint256 => Round) public rounds; // roundId -> Round
+    mapping(uint256 => Round) public roundsLedger; // roundId -> Round
     mapping(uint256 => mapping(address => Bet)) public betsLedger; // roundId -> map(userAddress -> Bet)
 
     struct Bet {
@@ -165,19 +166,19 @@ contract AiPredictionV1 is
         uint256 _lockTimestampByMinutes,
         uint256 _closeTimestampByMinutes
     ) external payable whenNotPaused notContract nonReentrant {
-        require(_lockTimestampByMinutes < _closeTimestampByMinutes, "lockTime must be less than closeTime");
+        require(_lockTimestampByMinutes < _closeTimestampByMinutes, "invalid timestamp");
         require(bytes(_prompt).length > 0, "prompt must be set");
-        // uint256 roundCost = estimateEtherFee(uint256(300000)); // estimate cost with 300k gas limit
-        // roundCost = (roundCost * 110) / 100; // add 10% extra gas to be sure
-        // require(msg.value >= roundCost, "not enough eth to cover oracle fees");
+        uint256 roundCost = estimateEtherFee(uint256(300000)); // estimate cost with 300k gas limit
+        roundCost = (roundCost * 110) / 100; // add 10% extra gas to be sure
+        require(msg.value >= roundCost, "oracle fee not covered");
 
-        Round storage round = rounds[roundIdCounter];
+        Round storage round = roundsLedger[roundIdCounter];
         round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
         round.closeTimestamp = block.timestamp + (_closeTimestampByMinutes * (1 minutes));
         round.prompt = _prompt;
         round.master = msg.sender;
 
-        // houseBalance += roundCost;
+        houseBalance += roundCost;
 
         roundIdCounter++;
     }
@@ -187,20 +188,20 @@ contract AiPredictionV1 is
      * @param roundId: roundId
      */
     function betYes(uint256 roundId) external payable nonReentrant whenNotPaused notContract {
-        require(msg.value >= minBetAmount, "Bet amount must be greater than minBetAmount");
+        require(msg.value >= minBetAmount, "bet is less than minBet");
         require(betsLedger[roundId][msg.sender].amount == 0, "Can only bet once per round");
         require(_bettable(roundId), "Betting period has ended");
 
         // Update round data
         uint256 amount = msg.value;
-        Round storage round = rounds[roundId];
-        round.totalVolume = round.totalVolume + amount;
-        round.yesBetsVolume = round.yesBetsVolume + amount;
+        Round storage selectedRound = roundsLedger[roundId];
+        selectedRound.totalVolume = selectedRound.totalVolume + amount;
+        selectedRound.yesBetsVolume = selectedRound.yesBetsVolume + amount;
 
         // Update user data
-        Bet storage tmp = betsLedger[roundId][msg.sender];
-        tmp.betOption = BET_OPTION_YES;
-        tmp.amount = amount;
+        Bet storage betInfo = betsLedger[roundId][msg.sender];
+        betInfo.betOption = BET_OPTION_YES;
+        betInfo.amount = amount;
 
         emit BetYes(msg.sender, roundId, amount);
     }
@@ -210,20 +211,20 @@ contract AiPredictionV1 is
      * @param roundId: roundId
      */
     function betNo(uint256 roundId) external payable nonReentrant whenNotPaused notContract {
-        require(msg.value >= minBetAmount, "Bet amount must be greater than minBetAmount");
+        require(msg.value >= minBetAmount, "bet is less than minBet");
         require(betsLedger[roundId][msg.sender].amount == 0, "Can only bet once per round");
         require(_bettable(roundId), "Betting period has ended");
 
         // Update round data
         uint256 amount = msg.value;
-        Round storage round = rounds[roundId];
-        round.totalVolume = round.totalVolume + amount;
-        round.noBetsVolume = round.noBetsVolume + amount;
+        Round storage selectedRound = roundsLedger[roundId];
+        selectedRound.totalVolume = selectedRound.totalVolume + amount;
+        selectedRound.noBetsVolume = selectedRound.noBetsVolume + amount;
 
         // Update user data
-        Bet storage tmp = betsLedger[roundId][msg.sender];
-        tmp.betOption = BET_OPTION_NO;
-        tmp.amount = amount;
+        Bet storage betInfo = betsLedger[roundId][msg.sender];
+        betInfo.betOption = BET_OPTION_NO;
+        betInfo.amount = amount;
 
         emit BetNo(msg.sender, roundId, amount);
     }
@@ -233,21 +234,21 @@ contract AiPredictionV1 is
      * @param roundId: roundId
      */
     function endRound(uint256 roundId) external nonReentrant notContract {
-        require(rounds[roundId].totalVolume > 0, "not worth it");
-        require(rounds[roundId].closeTimestamp < block.timestamp, "round didn't end");
-        require(rounds[roundId].oracleRequestId == bytes32(0), "oracle called already");
+        require(roundsLedger[roundId].totalVolume > 0, "not worth it");
+        require(roundsLedger[roundId].closeTimestamp < block.timestamp, "round didn't end");
+        require(roundsLedger[roundId].oracleRequestId == bytes32(0), "oracle called already");
 
-        Round storage round = rounds[roundId];
+        Round storage selectedRound = roundsLedger[roundId];
 
         string[] memory args = new string[](2);
-        args[0] = round.prompt;
-        args[1] = Strings.toString(round.closeTimestamp);
+        args[0] = selectedRound.prompt;
+        args[1] = Strings.toString(selectedRound.closeTimestamp);
 
         // send request to oracle
         bytes32 requestId = sendRequest(args);
 
         // update round data
-        round.oracleRequestId = requestId;
+        selectedRound.oracleRequestId = requestId;
 
         // update requestsLedger
         requestsLedger[requestId] = roundId;
@@ -263,12 +264,12 @@ contract AiPredictionV1 is
         for (uint256 i = 0; i < roundIds.length; i++) {
             uint256 roundId = roundIds[i];
 
-            Round memory round = rounds[roundId];
+            Round memory round = roundsLedger[roundId];
             Bet memory bet = betsLedger[roundId][msg.sender];
 
             // Round validity is unknown yet
             require(round.oracleRequestId != bytes32(0), "Oracle isn't called");
-            require(rounds[roundId].rewardBaseCall > 0, "Rewards aren't calculated");
+            require(roundsLedger[roundId].rewardBaseCall > 0, "Rewards aren't calculated");
 
             // Round valid for claiming rewards
             if (round.result == bet.betOption) {
@@ -294,7 +295,7 @@ contract AiPredictionV1 is
      * @param roundId: ID of the round to check
      */
     function refundable(uint256 roundId, address user) public view returns (bool) {
-        Round memory round = rounds[roundId];
+        Round memory round = roundsLedger[roundId];
         Bet memory bet = betsLedger[roundId][user];
         return
             (round.err.length > 0) &&
@@ -308,7 +309,7 @@ contract AiPredictionV1 is
      * @param roundId: ID of the round to check
      */
     function claimable(uint256 roundId, address user) public view returns (bool) {
-        Round memory round = rounds[roundId];
+        Round memory round = roundsLedger[roundId];
         Bet memory bet = betsLedger[roundId][user];
         return
             (round.err.length == 0) &&
@@ -322,9 +323,9 @@ contract AiPredictionV1 is
      * @notice Claim all master balance
      */
     function claimMasterBalance(uint256 roundId) external nonReentrant notContract {
-        require(rounds[roundId].masterBalance > 0, "you broke");
+        require(roundsLedger[roundId].masterBalance > 0, "you broke");
 
-        Round storage round = rounds[roundId];
+        Round storage round = roundsLedger[roundId];
         uint256 currentMasterBalance = round.masterBalance;
         round.masterBalance = 0;
 
@@ -366,9 +367,9 @@ contract AiPredictionV1 is
         uint256 roundId = requestsLedger[requestId];
 
         if (err.length > 0) {
-            rounds[roundId].err = err; // In case of error, store the error
+            roundsLedger[roundId].err = err; // In case of error, store the error
         } else {
-            rounds[roundId].result = keccak256(response); // Proceed with response hash it
+            roundsLedger[roundId].result = keccak256(response); // Proceed with response hash it
         }
 
         _calculateRewards(roundId); // calculate results
@@ -382,9 +383,9 @@ contract AiPredictionV1 is
      * @param roundId: ID of the round to calculate rewards for
      */
     function _calculateRewards(uint256 roundId) internal {
-        require(rounds[roundId].rewardBaseCall == 0, "Rewards calculated");
+        require(roundsLedger[roundId].rewardBaseCall == 0, "Rewards calculated");
 
-        Round storage round = rounds[roundId];
+        Round storage round = roundsLedger[roundId];
 
         houseBalance += (round.totalVolume * houseFee) / 10000;
         round.masterBalance += (round.totalVolume * roundMasterFee) / 10000;
@@ -408,9 +409,9 @@ contract AiPredictionV1 is
      */
     function _bettable(uint256 roundId) internal view returns (bool) {
         return
-            rounds[roundId].lockTimestamp != 0 &&
-            rounds[roundId].closeTimestamp != 0 &&
-            block.timestamp < rounds[roundId].lockTimestamp;
+            roundsLedger[roundId].lockTimestamp != 0 &&
+            roundsLedger[roundId].closeTimestamp != 0 &&
+            block.timestamp < roundsLedger[roundId].lockTimestamp;
     }
 
     /**
