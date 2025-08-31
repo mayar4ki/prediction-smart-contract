@@ -2,7 +2,7 @@ import hre from "hardhat";
 import { SecretsManager, SubscriptionManager } from "@chainlink/functions-toolkit";
 import { ethers as ethers5 } from "ethers-v5";
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { parseEther } from "ethers";
+import { parseEther, parseUnits } from "ethers";
 import { envValidationSchema } from "./envValidationSchema.js";
 
 
@@ -40,22 +40,23 @@ async function main() {
             m.getParameter("_ownerAddress", env.OWNER_ADDRESS),
             m.getParameter("_adminAddress", env.ADMIN_ADDRESS),
 
-            m.getParameter("_oracleRouter", env.ORACLE_FUNCTIONS_ROUTER),
-            m.getParameter("_oracleDonID", env.ORACLE_DON_ID),
-            m.getParameter("_oracleSubscriptionId", subscriptionId),
-            m.getParameter("_oracleAggregatorV3PriceFeed", env.ORACLE_AGGREGATOR_V3_PRICE_FEED),
-            m.getParameter("_oracleCallBackGasLimit", env.ORACLE_CALLBACK_GAS_LIMIT),
-
             m.getParameter("_minBetAmount", parseEther(env.MIN_BET_AMOUNT.toString())),
             m.getParameter("_houseFee", env.HOUSE_FEE),
-            m.getParameter("_roundMasterFee", env.ROUND_MASTER_FEE)
+            m.getParameter("_roundMasterFee", env.ROUND_MASTER_FEE),
+
+            m.getParameter("_oracleRouter", env.ORACLE_FUNCTIONS_ROUTER),
+            m.getParameter("_oracleDonID", env.ORACLE_DON_ID),
+            m.getParameter("_oracleCallBackGasLimit", env.ORACLE_CALLBACK_GAS_LIMIT),
+            m.getParameter("_oracleSubscriptionId", subscriptionId),
+            m.getParameter("_oracleAggregatorV3PriceFeed", env.ORACLE_AGGREGATOR_V3_PRICE_FEED)
         ]);
 
         return { aiPredictionV1 };
     }),
         {
             deploymentId: hre.globalOptions.network,
-            displayUi: true
+            displayUi: true,
+            config: { requiredConfirmations: 1 }
         });
 
     const aiPredictionV1Address = await aiPredictionV1.getAddress();
