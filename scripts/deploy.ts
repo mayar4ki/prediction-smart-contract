@@ -1,24 +1,15 @@
 import hre from "hardhat";
-import { SecretsManager, SubscriptionManager } from "@chainlink/functions-toolkit";
-import { ethers as ethers5 } from "ethers-v5";
+import { SubscriptionManager } from "@chainlink/functions-toolkit";
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { parseEther, parseUnits } from "ethers";
-import { envValidationSchema } from "./envValidationSchema.js";
-
+import { parseEther } from "ethers";
+import { initializeConnections } from "./helpers/initializeConnections.js";
+import { subscriptionFunding } from "./helpers/subscriptionFunding.js";
+import { uploadSecretsToDON } from "./helpers/uploadSecretsToDON.js";
 
 async function main() {
 
-    const env = envValidationSchema.parse(process.env);
-    const connection = await hre.network.connect();
-
-    console.log(`🚀 Deploying... \n`);
-
-    const ethersV5Provider = new ethers5.providers.JsonRpcProvider(env.CHAIN_RPC_URL, {
-        chainId: env.CHAIN_ID,
-        name: connection.networkName
-    });
-
-    const v5Signer = new ethers5.Wallet(env.ACCOUNT_PRIVATE_KEY, ethersV5Provider);
+    const _connections = await initializeConnections();
+    const { env, connection, v5Signer } = _connections;
 
     const subscriptionManager = new SubscriptionManager({
         signer: v5Signer,
@@ -73,46 +64,9 @@ async function main() {
     });
     console.log(`✅ Contract added to Subscription ID:${subscriptionId} - tx hash: ${addConsumerTxReceipt.transactionHash} \n`);
 
+    const { version } = await uploadSecretsToDON(_connections)
 
-    console.log(`🚀 Uploading secrets to DON...`);
-    const secretsManager = new SecretsManager({
-        signer: v5Signer,
-        functionsRouterAddress: env.ORACLE_FUNCTIONS_ROUTER,
-        donId: env.ORACLE_FUN_DON_ID
-    });
-
-    await secretsManager.initialize();
-
-    const encryptedSecretsObj = await secretsManager.encryptSecrets({
-        openaiKey: env.OPEN_AI_API_KEY
-    });
-
-    const {
-        version, // Secrets version number (corresponds to timestamp when encrypted secrets were uploaded to DON)
-        success, // Boolean value indicating if encrypted secrets were successfully uploaded to all nodes connected to the gateway
-    } = await secretsManager.uploadEncryptedSecretsToDON({
-        encryptedSecretsHexstring: encryptedSecretsObj.encryptedSecrets,
-        gatewayUrls: (env.ORACLE_ENCRYPTED_SECRETS_UPLOAD_ENDPOINTS!).split(','),
-        slotId: 0,
-        minutesUntilExpiration: 60,
-    });
-
-    if (!success) {
-        throw Error("Mission failed")
-    }
-
-    if (success) {
-        console.log(`✅ Secrets Uploaded successfully version:${version} \n`);
-    }
-
-
-    console.log(`💸💸Funding Chain link subscription with ${env.ORACLE_SUBSCRIPTION_INITIAL_FUND} LINK ...`);
-    const juelsAmount = BigInt(env.ORACLE_SUBSCRIPTION_INITIAL_FUND) * BigInt(10 ** 18);
-    const fundSubscriptionRes = await subscriptionManager.fundSubscription({
-        subscriptionId,
-        juelsAmount,
-    });
-    console.log(`✅ subscription is funded tx: ${fundSubscriptionRes.transactionHash} \n`);
+    await subscriptionFunding(subscriptionId, _connections);
 
     console.log(`------------Deployment-Info------------`);
     console.log(`contract address: ${aiPredictionV1Address}`)
