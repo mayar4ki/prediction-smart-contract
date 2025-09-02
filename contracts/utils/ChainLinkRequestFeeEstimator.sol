@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: UNLICENSED
+// Copyright © 2025 mayar4ki. All Rights Reserved.
 
 pragma solidity >=0.8.2 <0.9.0;
 

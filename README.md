@@ -11,16 +11,28 @@ The project uses environment files for configuration. A template file `.env.exam
 Required Parameters:
 - `OWNER_ADDRESS` - The address that will own the contract
 - `ADMIN_ADDRESS` - The address that will have admin privileges
+- `CHAIN_RPC_URL` - RPC URL of the network (e.g., Ethereum Sepolia)
+- `CHAIN_ID` - Chain ID of the network (e.g., 11155111 for Sepolia)
+- `ACCOUNT_PRIVATE_KEY` - Your wallet's private key for deployment
+
+Chainlink Configuration:
+- `ORACLE_ENCRYPTED_SECRETS_UPLOAD_ENDPOINTS` - Comma-separated list of Chainlink Functions gateway endpoints
 - `ORACLE_FUNCTIONS_ROUTER` - Chainlink Functions Router address for your network
-- `ORACLE_DON_ID` - Chainlink DON ID for your network
-- `ORACLE_SUBSCRIPTION_ID` - Chainlink Subscription ID for your network
+- `ORACLE_DON_ID` - Chainlink DON ID for your network (hex format)
+- `ORACLE_FUN_DON_ID` - Chainlink DON ID string reference (e.g., 'fun-ethereum-sepolia-1')
+- `ORACLE_AGGREGATOR_V3_PRICE_FEED` - LINK/ETH price feed address for your network
+- `LINK_TOKEN_ADDRESS` - LINK token address for your network
+- `ORACLE_SUBSCRIPTION_INITIAL_FUND` - Initial fund amount for Chainlink subscription in LINK
 
-
-Optional Parameters (with defaults):
+Game Configuration (with defaults):
 - `MIN_BET_AMOUNT` - Minimum bet amount in ETH (default: 0.01 ETH)
 - `HOUSE_FEE` - House fee in basis points (default: 100 = 1%)
 - `ROUND_MASTER_FEE` - Round master fee in basis points (default: 200 = 2%)
 - `ORACLE_CALLBACK_GAS_LIMIT` - Gas limit for oracle callback (default: 300000)
+
+API Keys:
+- `ETHERSCAN_API_KEY` - Your Etherscan API key for contract verification
+- `OPEN_AI_API_KEY` - Your OpenAI API key for AI predictions
 
 To set up your environment:
 1. Copy `.env.example` to `.env.eth.sepolia` for Sepolia deployment
@@ -32,16 +44,20 @@ To set up your environment:
 ```bash
 # Deployment Scripts
 yarn deploy:sepolia      # Deploy to Ethereum Sepolia testnet
-yarn deploy:avax:test    # Deploy to Avalanche Fuji testnet
 
 # Contract Verification
-yarn verify:sepolia <contract_address>     # Verify contract on Sepolia
-yarn verify:avax:test <contract_address>   # Verify contract on Avalanche Fuji
+yarn verify:sepolia      # Verify contract on Sepolia network
 
-# Other Utilities
+# Chainlink Integration
+yarn secrets:sepolia     # Upload secrets to Chainlink DON (Decentralized Oracle Network)
+yarn fund:sepolia        # Fund Chainlink subscription with LINK tokens
+
+# Development Utilities
 yarn visualize          # Visualize the deployment graph
-yarn clear             # Clear deployment artifacts and cache
+yarn clear              # Clear deployment artifacts and cache
 ```
+
+All deployment-related scripts use environment variables from `.env.eth.sepolia`. Make sure to set up your environment variables before running these scripts.
 
 ## Project Overview
 
@@ -77,3 +93,75 @@ Key Features:
 - Anti-contract measures to prevent contract-based interactions
 - Admin access control for privileged operations
 - Safe ERC20 token handling
+
+## Development
+
+### Local Setup
+
+1. Clone the repository
+```bash
+git clone https://github.com/mayar4ki/prediction.git
+cd prediction
+```
+
+2. Install dependencies
+```bash
+yarn install
+```
+
+3. Set up your environment variables
+```bash
+cp .env.example .env.local
+```
+
+4. Start local hardhat node
+```bash
+yarn hardhat node
+```
+
+5. Deploy contracts locally
+```bash
+yarn deploy:local
+```
+
+### Testing
+
+Run the test suite:
+```bash
+yarn test
+```
+
+Run coverage report:
+```bash
+yarn coverage
+```
+
+## Project Structure
+
+```
+├── contracts/          # Smart contract source files
+├── scripts/           # Deployment and utility scripts
+├── test/             # Test files
+├── ignition/         # Ignition deployment configurations
+└── artifacts/        # Compiled contract artifacts
+```
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature/your-feature`)
+3. Make your changes
+4. Run tests to ensure everything works
+5. Commit your changes (`git commit -am 'Add some feature'`)
+6. Push to the branch (`git push origin feature/your-feature`)
+7. Create a Pull Request
+
+## License
+
+Copyright © 2025 mayar4ki. All Rights Reserved.
+
+This project and its source code are proprietary and confidential. No part of this project may be reproduced, distributed, or transmitted in any form or by any means, without the prior written permission of the copyright holder.
+
+Unauthorized copying, modification, distribution, or use of this software is strictly prohibited.
