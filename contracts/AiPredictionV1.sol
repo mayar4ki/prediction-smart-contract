@@ -169,7 +169,7 @@ contract AiPredictionV1 is
     ) external payable whenNotPaused notContract nonReentrant {
         require(_lockTimestampByMinutes < _closeTimestampByMinutes, "invalid timestamp");
         require(bytes(_prompt).length > 0, "prompt required");
-        uint256 roundCost = estimateFee(uint256(300000)); // estimate cost with 300k gas limit
+        uint256 roundCost = estimateFee(uint256(oracleCallBackGasLimit)); // estimate cost with 300k gas limit
         roundCost = (roundCost * 110) / 100; // add 10% extra gas to be sure
         require(msg.value >= roundCost, "oracle fee not covered");
 

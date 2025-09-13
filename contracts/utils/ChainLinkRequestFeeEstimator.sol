@@ -47,7 +47,7 @@ contract ChainLinkRequestFeeEstimator {
         uint256 gasOverheadInEth = (gasOverheadInJuels * linkPerEth) / 1e18; // 2. Convert LINK Juels to ETH
         uint256 gasOverheadInGwei = gasOverheadInEth * 1e9; // 3. Convert ETH to Gwei
 
-        uint256 baseFeeGwei = block.basefee / 1 gwei; // returns 30 Gwei
+        uint256 baseFeeGwei = (block.basefee > 0 ? block.basefee : tx.gasprice) / 1e9;
         uint256 overestimatedGasPrice = (baseFeeGwei * 120) / 100; // 20% buffer e.g. 36 Gwei
 
         // 1 - Calculate the total gas cost (gwei): Gas price x (Gas overhead + Callback gas)
