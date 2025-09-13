@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-// Copyright © 2025 mayar4ki. All Rights Reserved.
+// Copyright © 2025  . All Rights Reserved.
 
 pragma solidity >=0.8.2 <0.9.0;
 
@@ -38,11 +38,12 @@ contract ChainLinkRequestFeeEstimator {
      * @return fee The estimated ETH fee
      */
     function estimateFee(uint256 callbackGasLimit) public view returns (uint256 fee) {
+        uint32 fulfillmentGasPrice = _getFulfillmentGasPrice();
+        uint256 gasOverheadInJuels = _getRouterAdminFees();
 
         (, int256 price, , , ) = dataFeed.latestRoundData(); // 1. Fetch LINK/ETH price from Chainlink feed
         uint256 linkPerEth = uint256(price); // 1e18 format
 
-        uint256 gasOverheadInJuels = _getRouterAdminFees();
         uint256 gasOverheadInEth = (gasOverheadInJuels * linkPerEth) / 1e18; // 2. Convert LINK Juels to ETH
         uint256 gasOverheadInGwei = gasOverheadInEth * 1e9; // 3. Convert ETH to Gwei
 
@@ -54,7 +55,6 @@ contract ChainLinkRequestFeeEstimator {
 
         // 3 - The premium fee was converted from USD to LINK at the time of the request.
         // Add this converted premium fee to get the total cost of a request:
-        uint32 fulfillmentGasPrice = _getFulfillmentGasPrice();
         uint256 premiumFees = uint256(fulfillmentGasPrice);
 
         uint256 totalRequestCost = totalGasCost + premiumFees;

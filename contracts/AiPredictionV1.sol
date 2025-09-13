@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-// Copyright © 2025 mayar4ki. All Rights Reserved.
+// Copyright © 2025  . All Rights Reserved.
 
 pragma solidity >=0.8.2 <0.9.0;
 
@@ -130,7 +130,7 @@ contract AiPredictionV1 is
      * @notice Set new fees
      */
     function setOperatingFees(uint256 _houseFee, uint256 _roundMasterFee) external whenPaused onlyAdmin {
-        require(_legitFees(_houseFee, _roundMasterFee), "Fee too high");
+        require(_legitFees(_houseFee, _roundMasterFee), "fee too high");
         houseFee = _houseFee;
         roundMasterFee = _roundMasterFee;
         emit NewOperationFees(_houseFee, _roundMasterFee);
