@@ -26,3 +26,4 @@
 .env.eth.sepolia
 
 .deps
+.states
