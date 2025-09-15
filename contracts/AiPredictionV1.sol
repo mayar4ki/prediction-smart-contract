@@ -169,9 +169,9 @@ contract AiPredictionV1 is
     ) external payable whenNotPaused notContract nonReentrant {
         require(_lockTimestampByMinutes < _closeTimestampByMinutes, "invalid timestamp");
         require(bytes(_prompt).length > 0, "prompt required");
-        uint256 roundCost = estimateFee(uint256(oracleCallBackGasLimit)); // estimate cost with 300k gas limit
-        roundCost = (roundCost * 110) / 100; // add 10% extra gas to be sure
-        require(msg.value >= roundCost, "oracle fee not covered");
+        uint256 weiRoundCost = estimateFee(uint256(oracleCallBackGasLimit)) * 1e9; // estimate cost with 300k gas limit
+        weiRoundCost = (weiRoundCost * 110) / 100; // add 10% extra gas to be sure
+        require(msg.value >= weiRoundCost, "oracle fee not covered");
 
         Round storage round = roundsLedger[roundIdCounter];
         round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
@@ -179,7 +179,7 @@ contract AiPredictionV1 is
         round.prompt = _prompt;
         round.master = msg.sender;
 
-        houseBalance += roundCost;
+        houseBalance += weiRoundCost;
 
         roundIdCounter++;
     }
