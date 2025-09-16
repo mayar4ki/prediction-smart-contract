@@ -41,9 +41,11 @@ contract AiPredictionV1 is
     bytes32 public constant BET_OPTION_YES = keccak256(abi.encodePacked(bytes32("YES")));
     bytes32 public constant BET_OPTION_NO = keccak256(abi.encodePacked(bytes32("NO")));
 
-    uint256 public roundIdCounter; // counter for round ids
+    uint256 public roundIdCounter = 1; // counter for round ids
     mapping(uint256 => Round) public roundsLedger; // roundId -> Round
     mapping(uint256 => mapping(address => Bet)) public betsLedger; // roundId -> map(userAddress -> Bet)
+
+    mapping(address => uint256[]) public masterRoundIDs;
 
     struct Bet {
         bytes32 betOption;
@@ -52,6 +54,7 @@ contract AiPredictionV1 is
     }
 
     struct Round {
+        uint256 id;
         address master;
         uint256 masterBalance;
         string prompt;
@@ -159,28 +162,29 @@ contract AiPredictionV1 is
     /**
      * @notice Create a new betting round
      * @param _prompt: prompt for the round
-     * @param _lockTimestampByMinutes: time bet will stop at
-     * @param _closeTimestampByMinutes: bet result will be released
+     * @param _lockTimestamp: time bet will stop at (unix)
+     * @param _closeTimestamp: bet result will be released (unix)
      */
     function createRound(
         string calldata _prompt,
-        uint256 _lockTimestampByMinutes,
-        uint256 _closeTimestampByMinutes
+        uint256 _lockTimestamp,
+        uint256 _closeTimestamp
     ) external payable whenNotPaused notContract nonReentrant {
-        require(_lockTimestampByMinutes < _closeTimestampByMinutes, "invalid timestamp");
+        require(_lockTimestamp < _closeTimestamp, "invalid timestamp");
         require(bytes(_prompt).length > 0, "prompt required");
         uint256 weiRoundCost = estimateFee(uint256(oracleCallBackGasLimit)) * 1e9; // estimate cost with 300k gas limit
         weiRoundCost = (weiRoundCost * 110) / 100; // add 10% extra gas to be sure
         require(msg.value >= weiRoundCost, "oracle fee not covered");
 
         Round storage round = roundsLedger[roundIdCounter];
-        round.lockTimestamp = block.timestamp + (_lockTimestampByMinutes * (1 minutes));
-        round.closeTimestamp = block.timestamp + (_closeTimestampByMinutes * (1 minutes));
+        round.id = roundIdCounter;
+        round.lockTimestamp = _lockTimestamp;
+        round.closeTimestamp = _closeTimestamp;
         round.prompt = _prompt;
         round.master = msg.sender;
+        masterRoundIDs[msg.sender].push(roundIdCounter);
 
         houseBalance += weiRoundCost;
-
         roundIdCounter++;
     }
 
@@ -439,5 +443,40 @@ contract AiPredictionV1 is
     function recoverToken(address _token, uint256 _amount) external onlyOwner {
         IERC20(_token).safeTransfer(address(msg.sender), _amount);
         emit TokenRecovery(_token, _amount);
+    }
+
+    /**
+     * @notice Returns rounds created by master
+     * @param master: master address
+     * @param cursor: cursor
+     * @param size: size
+     */
+    function getMasterRounds(
+        address master,
+        uint256 cursor,
+        uint256 size
+    ) external view returns (Round[] memory, uint256) {
+        uint256 length = size;
+
+        if (length > masterRoundIDs[master].length - cursor) {
+            length = masterRoundIDs[master].length - cursor;
+        }
+
+        Round[] memory payload = new Round[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            uint256 id = masterRoundIDs[master][cursor + i];
+            payload[i] = roundsLedger[id];
+        }
+
+        return (payload, cursor + length);
+    }
+
+    /**
+     * @notice Returns round epochs length
+     * @param master: master address
+     */
+    function getMasterRoundsLength(address master) external view returns (uint256) {
+        return masterRoundIDs[master].length;
     }
 }
