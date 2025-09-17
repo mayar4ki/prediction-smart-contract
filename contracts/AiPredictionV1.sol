@@ -41,7 +41,7 @@ contract AiPredictionV1 is
     bytes32 public constant BET_OPTION_YES = keccak256(abi.encodePacked(bytes32("YES")));
     bytes32 public constant BET_OPTION_NO = keccak256(abi.encodePacked(bytes32("NO")));
 
-    uint256 public roundIdCounter = 1; // counter for round ids
+    uint256 public roundIdCounter; // counter for round ids
     mapping(uint256 => Round) public roundsLedger; // roundId -> Round
     mapping(uint256 => mapping(address => Bet)) public betsLedger; // roundId -> map(userAddress -> Bet)
 
@@ -478,5 +478,26 @@ contract AiPredictionV1 is
      */
     function getMasterRoundsLength(address master) external view returns (uint256) {
         return masterRoundIDs[master].length;
+    }
+
+    /**
+     * @notice Returns all rounds
+     * @param cursor: cursor
+     * @param size: size
+     */
+    function getAllRounds(uint256 cursor, uint256 size) external view returns (Round[] memory, uint256) {
+        uint256 length = size;
+
+        if (length > roundIdCounter - cursor) {
+            length = roundIdCounter - cursor;
+        }
+
+        Round[] memory payload = new Round[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            payload[i] = roundsLedger[cursor + i];
+        }
+
+        return (payload, cursor + length);
     }
 }
