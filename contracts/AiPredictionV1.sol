@@ -38,8 +38,8 @@ contract AiPredictionV1 is
     uint256 public minBetAmount; // min betting amount (wei)
 
     uint256 public constant MAX_OP_FEE = 1000; // 10%
-    bytes32 public constant BET_OPTION_YES = keccak256(abi.encodePacked(bytes32("YES")));
-    bytes32 public constant BET_OPTION_NO = keccak256(abi.encodePacked(bytes32("NO")));
+    bytes32 public constant BET_OPTION_YES = bytes32("YES");
+    bytes32 public constant BET_OPTION_NO = bytes32("NO");
 
     uint256 public roundIdCounter; // counter for round ids
     mapping(uint256 => Round) public roundsLedger; // roundId -> Round
@@ -374,7 +374,7 @@ contract AiPredictionV1 is
         if (err.length > 0) {
             roundsLedger[roundId].err = err; // In case of error, store the error
         } else {
-            roundsLedger[roundId].result = keccak256(response); // Proceed with response hash it
+            roundsLedger[roundId].result = bytes32(response); // Proceed with response hash it
         }
 
         _calculateRewards(roundId); // calculate results
