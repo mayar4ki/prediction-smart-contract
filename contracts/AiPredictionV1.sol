@@ -43,11 +43,11 @@ contract AiPredictionV1 is
 
     uint256 public roundIdCounter; // counter for round ids
     mapping(uint256 => Round) public roundsLedger; // roundId -> Round
-    mapping(uint256 => mapping(address => Bet)) public betsLedger; // roundId -> map(userAddress -> Bet)
+    mapping(uint256 => mapping(address => BetInfo)) public betsLedger; // roundId -> map(userAddress -> Bet)
 
     mapping(address => uint256[]) public masterRoundIDs;
 
-    struct Bet {
+    struct BetInfo {
         bytes32 betOption;
         uint256 amount;
         bool claimed; // default false
@@ -204,7 +204,7 @@ contract AiPredictionV1 is
         selectedRound.yesBetsVolume = selectedRound.yesBetsVolume + amount;
 
         // Update user data
-        Bet storage betInfo = betsLedger[roundId][msg.sender];
+        BetInfo storage betInfo = betsLedger[roundId][msg.sender];
         betInfo.betOption = BET_OPTION_YES;
         betInfo.amount = amount;
 
@@ -227,7 +227,7 @@ contract AiPredictionV1 is
         selectedRound.noBetsVolume = selectedRound.noBetsVolume + amount;
 
         // Update user data
-        Bet storage betInfo = betsLedger[roundId][msg.sender];
+        BetInfo storage betInfo = betsLedger[roundId][msg.sender];
         betInfo.betOption = BET_OPTION_NO;
         betInfo.amount = amount;
 
@@ -270,7 +270,7 @@ contract AiPredictionV1 is
             uint256 roundId = roundIds[i];
 
             Round memory round = roundsLedger[roundId];
-            Bet memory bet = betsLedger[roundId][msg.sender];
+            BetInfo memory bet = betsLedger[roundId][msg.sender];
 
             // Round validity is unknown yet
             require(round.oracleRequestId != bytes32(0), "oracle not called");
@@ -301,7 +301,7 @@ contract AiPredictionV1 is
      */
     function refundable(uint256 roundId, address user) public view returns (bool) {
         Round memory round = roundsLedger[roundId];
-        Bet memory bet = betsLedger[roundId][user];
+        BetInfo memory bet = betsLedger[roundId][user];
         return
             (round.err.length > 0) &&
             (bet.amount > 0) &&
@@ -315,7 +315,7 @@ contract AiPredictionV1 is
      */
     function claimable(uint256 roundId, address user) public view returns (bool) {
         Round memory round = roundsLedger[roundId];
-        Bet memory bet = betsLedger[roundId][user];
+        BetInfo memory bet = betsLedger[roundId][user];
         return
             (round.err.length == 0) &&
             (round.result == bet.betOption) &&
@@ -482,22 +482,29 @@ contract AiPredictionV1 is
 
     /**
      * @notice Returns all rounds
+     * @param user: wanted user address bets
      * @param cursor: cursor
      * @param size: size
      */
-    function getAllRounds(uint256 cursor, uint256 size) external view returns (Round[] memory, uint256) {
+    function getAllRounds(
+        address user,
+        uint256 cursor,
+        uint256 size
+    ) external view returns (Round[] memory, BetInfo[] memory, uint256) {
         uint256 length = size;
 
         if (length > roundIdCounter - cursor) {
             length = roundIdCounter - cursor;
         }
 
-        Round[] memory payload = new Round[](length);
+        Round[] memory roundsPayload = new Round[](length);
+        BetInfo[] memory betsPayload = new BetInfo[](length);
 
         for (uint256 i = 0; i < length; i++) {
-            payload[i] = roundsLedger[cursor + i];
+            roundsPayload[i] = roundsLedger[cursor + i];
+            betsPayload[i] = betsLedger[cursor + i][user];
         }
 
-        return (payload, cursor + length);
+        return (roundsPayload, betsPayload, cursor + length);
     }
 }
