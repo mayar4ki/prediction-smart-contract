@@ -27,3 +27,6 @@
 
 .deps
 .states
+
+.debug
+swarm

@@ -389,7 +389,8 @@ contract AiPredictionV1 is
      */
     function _calculateRewards(uint256 roundId) public {
         require(roundsLedger[roundId].rewardBaseCall == 0, "already calculated");
-        require(roundsLedger[roundId].totalVolume > 0, "no volume");
+         require(roundsLedger[roundId].totalVolume > 0, "no volume");
+         require(roundsLedger[roundId].result.length > 0 || roundsLedger[roundId].err.length > 0, "no response");
 
         Round storage round = roundsLedger[roundId];
 
