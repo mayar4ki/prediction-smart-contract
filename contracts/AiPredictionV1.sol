@@ -76,6 +76,7 @@ contract AiPredictionV1 is
     event NewOracleSubscriptionId(uint64 newId);
     event NewMinBetAmount(uint256 minBetAmount);
 
+    event ClaimRounds(uint256[] roundIds, uint256 amount);
     event HouseBalanceClaim(uint256 amount);
     event MasterBalanceClaim(uint256 indexed roundId, uint256 amount);
     event RewardsCalculated(
@@ -86,7 +87,7 @@ contract AiPredictionV1 is
     );
 
     event OracleRequestSent(bytes32 indexed requestId, bytes response, bytes err);
-    event OracleResponseReceived(bytes32 indexed requestId, bytes response, bytes err);
+    event OracleResponseReceived(bytes32 indexed requestId, uint256 indexed roundId, bytes response, bytes err);
     event TokenRecovery(address indexed token, uint256 amount);
 
     /**
@@ -270,11 +271,11 @@ contract AiPredictionV1 is
             uint256 roundId = roundIds[i];
 
             Round memory round = roundsLedger[roundId];
-            BetInfo memory bet = betsLedger[roundId][msg.sender];
+            BetInfo storage bet = betsLedger[roundId][msg.sender];
 
             // Round validity is unknown yet
             require(round.oracleRequestId != bytes32(0), "oracle not called");
-            require(roundsLedger[roundId].rewardBaseCall > 0, "rewards not calculated");
+            require(round.rewardBaseCall > 0, "rewards not calculated");
 
             // Round valid for claiming rewards
             if (round.result == bet.betOption) {
@@ -293,6 +294,8 @@ contract AiPredictionV1 is
         if (reward > 0) {
             _safeTransfer(address(msg.sender), reward);
         }
+
+        emit ClaimRounds(roundIds, reward);
     }
 
     /**
@@ -370,30 +373,21 @@ contract AiPredictionV1 is
      */
     function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
         uint256 roundId = requestsLedger[requestId];
-
-        if (err.length > 0) {
-            roundsLedger[roundId].err = err; // In case of error, store the error
-        } else {
-            roundsLedger[roundId].result = bytes32(response); // Proceed with response hash it
-        }
-
-        // _calculateRewards(roundId); // calculate results
-
-        // Emit an event containing the response
-        emit OracleResponseReceived(requestId, response, err);
-    }
-
-    /**
-     * @notice Calculate the rewards for a round
-     * @param roundId: ID of the round to calculate rewards for
-     */
-    function _calculateRewards(uint256 roundId) public {
-        require(roundsLedger[roundId].rewardBaseCall == 0, "already calculated");
-         require(roundsLedger[roundId].totalVolume > 0, "no volume");
-         require(roundsLedger[roundId].result.length > 0 || roundsLedger[roundId].err.length > 0, "no response");
-
         Round storage round = roundsLedger[roundId];
 
+        require(round.result.length == 0 && round.err.length == 0, "already filled");
+        require(round.rewardBaseCall == 0, "already calculated");
+
+        if (err.length > 0) {
+            round.err = err; // In case of error, store the error
+        } else {
+            round.result = bytes32(response); // Proceed with response hash it
+        }
+
+        // Emit an event containing the response
+        emit OracleResponseReceived(requestId, roundId, response, err);
+
+        // *******calculating results********
         uint256 houseFeeAmount = (round.totalVolume * houseFee) / 10000;
         uint256 masterFeeAmount = (round.totalVolume * roundMasterFee) / 10000;
 
