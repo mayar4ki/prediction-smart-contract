@@ -377,7 +377,7 @@ contract AiPredictionV1 is
             roundsLedger[roundId].result = bytes32(response); // Proceed with response hash it
         }
 
-        _calculateRewards(roundId); // calculate results
+        // _calculateRewards(roundId); // calculate results
 
         // Emit an event containing the response
         emit OracleResponseReceived(requestId, response, err);
@@ -387,14 +387,19 @@ contract AiPredictionV1 is
      * @notice Calculate the rewards for a round
      * @param roundId: ID of the round to calculate rewards for
      */
-    function _calculateRewards(uint256 roundId) internal {
+    function _calculateRewards(uint256 roundId) public {
         require(roundsLedger[roundId].rewardBaseCall == 0, "already calculated");
+        require(roundsLedger[roundId].totalVolume > 0, "no volume");
 
         Round storage round = roundsLedger[roundId];
 
-        houseBalance += (round.totalVolume * houseFee) / 10000;
-        round.masterBalance += (round.totalVolume * roundMasterFee) / 10000;
-        round.totalVolume = round.totalVolume - (houseBalance + round.masterBalance);
+        uint256 houseFeeAmount = (round.totalVolume * houseFee) / 10000;
+        uint256 masterFeeAmount = (round.totalVolume * roundMasterFee) / 10000;
+
+        houseBalance += houseFeeAmount;
+        round.masterBalance = masterFeeAmount;
+
+        round.totalVolume = round.totalVolume - (houseFeeAmount + masterFeeAmount);
 
         if (round.result == BET_OPTION_YES) {
             round.rewardBaseCall = round.yesBetsVolume;
