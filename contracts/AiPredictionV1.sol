@@ -30,7 +30,12 @@ contract AiPredictionV1 is
     uint32 public immutable oracleCallBackGasLimit;
     uint64 public oracleSubscriptionId;
 
-    mapping(bytes32 => uint256) public requestsLedger; // requestId -> roundId
+    struct RequestInfo {
+        bool exists;
+        uint256 roundId;
+    }
+
+    mapping(bytes32 => RequestInfo) public requestsLedger; // requestId -> roundId
 
     uint256 public houseFee; // house rate (e.g. 200 = 2%, 150 = 1.50%)
     uint256 public houseBalance; // house treasury amount that was not claimed
@@ -79,16 +84,12 @@ contract AiPredictionV1 is
     event ClaimRounds(uint256[] roundIds, uint256 amount);
     event HouseBalanceClaim(uint256 amount);
     event MasterBalanceClaim(uint256 indexed roundId, uint256 amount);
-    event RewardsCalculated(
-        uint256 indexed roundId,
-        uint256 rewardBaseCall,
-        uint256 totalVolume,
-        uint256 totalFees
-    );
 
     event OracleRequestSent(bytes32 indexed requestId, bytes response, bytes err);
     event OracleResponseReceived(bytes32 indexed requestId, uint256 indexed roundId, bytes response, bytes err);
     event TokenRecovery(address indexed token, uint256 amount);
+
+    error FullFillError(bytes32 requestId, string _msg);
 
     /**
      * @notice Constructor
@@ -257,7 +258,7 @@ contract AiPredictionV1 is
         selectedRound.oracleRequestId = requestId;
 
         // update requestsLedger
-        requestsLedger[requestId] = roundId;
+        requestsLedger[requestId] = RequestInfo({roundId: roundId, exists: true});
     }
 
     /**
@@ -365,6 +366,15 @@ contract AiPredictionV1 is
         return ref;
     }
 
+    function bytesToBytes32(bytes memory source) internal pure returns (bytes32 result) {
+        if (source.length == 0) {
+            return 0x0;
+        }
+        assembly {
+            result := mload(add(source, 32))
+        }
+    }
+
     /**
      * @notice Callback function for fulfilling a request, Either response or error parameter will be set, but never both
      * @param requestId The ID of the request to fulfill
@@ -372,20 +382,23 @@ contract AiPredictionV1 is
      * @param err Any errors from the Functions request
      */
     function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
-        uint256 roundId = requestsLedger[requestId];
-        Round storage round = roundsLedger[roundId];
+        RequestInfo memory requestInfo = requestsLedger[requestId];
 
-        require(round.result.length == 0 && round.err.length == 0, "already filled");
-        require(round.rewardBaseCall == 0, "already calculated");
+        if (requestInfo.exists == false) {
+            revert FullFillError(requestId, "request not found");
+        }
+
+        Round storage round = roundsLedger[requestInfo.roundId];
+
+        if (round.result.length != 0 || round.err.length != 0) {
+            revert FullFillError(requestId, "already filled");
+        }
 
         if (err.length > 0) {
             round.err = err; // In case of error, store the error
         } else {
-            round.result = bytes32(response); // Proceed with response hash it
+            round.result = bytesToBytes32(response); // Proceed with response it
         }
-
-        // Emit an event containing the response
-        emit OracleResponseReceived(requestId, roundId, response, err);
 
         // *******calculating results********
         uint256 houseFeeAmount = (round.totalVolume * houseFee) / 10000;
@@ -405,7 +418,8 @@ contract AiPredictionV1 is
             round.rewardBaseCall = round.yesBetsVolume + round.noBetsVolume;
         }
 
-        emit RewardsCalculated(roundId, round.rewardBaseCall, round.totalVolume, houseBalance);
+        // Emit an event containing the response
+        emit OracleResponseReceived(requestId, requestInfo.roundId, response, err);
     }
 
     /**
