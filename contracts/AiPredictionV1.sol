@@ -13,7 +13,7 @@ import {ChainLinkFunction} from "./utils/ChainLinkFunction.sol";
 import {AntiContractGuard} from "./utils/AntiContractGuard.sol";
 import {AdminACL} from "./utils/AdminACL.sol";
 
-contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, ChainLinkFunction {
+contract AiPredictionV1 is ChainLinkFunction, ReentrancyGuard, AntiContractGuard, AdminACL {
     using SafeERC20 for IERC20;
 
     struct RequestInfo {
