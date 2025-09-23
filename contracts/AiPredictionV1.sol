@@ -370,13 +370,15 @@ contract AiPredictionV1 is ChainLinkFunction, ReentrancyGuard, AntiContractGuard
         }
 
         // *******calculating results********
-        uint256 houseFeeAmount = (round.totalVolume * houseFee) / 10000;
-        uint256 masterFeeAmount = (round.totalVolume * roundMasterFee) / 10000;
 
-        houseBalance += houseFeeAmount;
-        round.masterBalance = masterFeeAmount;
-
-        round.totalVolume = round.totalVolume - (houseFeeAmount + masterFeeAmount);
+        // cut fees in case one of the sides won
+        if (round.result == BET_OPTION_YES || round.result == BET_OPTION_NO) {
+            uint256 houseFeeAmount = (round.totalVolume * houseFee) / 10000;
+            uint256 masterFeeAmount = (round.totalVolume * roundMasterFee) / 10000;
+            houseBalance += houseFeeAmount;
+            round.masterBalance = masterFeeAmount;
+            round.totalVolume = round.totalVolume - (houseFeeAmount + masterFeeAmount);
+        }
 
         if (round.result == BET_OPTION_YES) {
             round.rewardBaseCall = round.yesBetsVolume;
@@ -384,7 +386,7 @@ contract AiPredictionV1 is ChainLinkFunction, ReentrancyGuard, AntiContractGuard
             round.rewardBaseCall = round.noBetsVolume;
         } else {
             // round.result is empty => this happen when the oracle fail or for any other reason
-            round.rewardBaseCall = round.yesBetsVolume + round.noBetsVolume;
+            round.rewardBaseCall = round.totalVolume;
         }
 
         // Emit an event containing the response
