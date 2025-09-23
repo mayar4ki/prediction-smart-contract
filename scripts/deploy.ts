@@ -23,7 +23,7 @@ async function main() {
 
 
     console.log(`🚀 Creating ChainLink Subscription...`);
-    const subscriptionId: number = await subscriptionManager.createSubscription({});
+    const subscriptionId: number = await subscriptionManager.createSubscription();
     console.log(`✅ ChainLink Subscription Created id:${subscriptionId} \n`);
 
     const { version: donHostedSecretsVersion } = await uploadSecretsToDON(_connections);
