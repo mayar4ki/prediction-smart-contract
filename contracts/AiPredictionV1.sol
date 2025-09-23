@@ -89,7 +89,7 @@ contract AiPredictionV1 is
     event OracleResponseReceived(bytes32 indexed requestId, uint256 indexed roundId, bytes response, bytes err);
     event TokenRecovery(address indexed token, uint256 amount);
 
-    error FullFillError(bytes32 requestId, string _msg);
+    event FullFillError(bytes32 requestId, string _msg);
 
     /**
      * @notice Constructor
@@ -385,13 +385,15 @@ contract AiPredictionV1 is
         RequestInfo memory requestInfo = requestsLedger[requestId];
 
         if (requestInfo.exists == false) {
-            revert FullFillError(requestId, "request not found");
+            emit FullFillError(requestId, "request not found");
+            return;
         }
 
         Round storage round = roundsLedger[requestInfo.roundId];
 
-        if (round.result.length != 0 || round.err.length != 0) {
-            revert FullFillError(requestId, "already filled");
+        if (round.result != bytes32(0) || round.err.length != 0) {
+            emit FullFillError(requestId, "already filled");
+            return;
         }
 
         if (err.length > 0) {
