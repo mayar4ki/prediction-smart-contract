@@ -24,7 +24,7 @@ export const uploadSecretsToDON = async (param?: Connections) => {
         success, // Boolean value indicating if encrypted secrets were successfully uploaded to all nodes connected to the gateway
     } = await secretsManager.uploadEncryptedSecretsToDON({
         encryptedSecretsHexstring: encryptedSecretsObj.encryptedSecrets,
-        gatewayUrls: (env.ORACLE_ENCRYPTED_SECRETS_UPLOAD_ENDPOINTS!).split(','),
+        gatewayUrls: (env.ORACLE_SECRETS_ENCRYPTION_UPLOAD_ENDPOINTS!).split(','),
         slotId: 0,
         minutesUntilExpiration: 60,
     });

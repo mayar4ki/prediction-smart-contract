@@ -26,6 +26,7 @@ async function main() {
     const subscriptionId: number = await subscriptionManager.createSubscription({});
     console.log(`✅ ChainLink Subscription Created id:${subscriptionId} \n`);
 
+    const { version: donHostedSecretsVersion } = await uploadSecretsToDON(_connections);
 
     console.log(`🚀 Deploying contract...`);
     const { aiPredictionV1 } = await connection.ignition.deploy(buildModule("AiPredictionV1Module", (m) => {
@@ -38,11 +39,17 @@ async function main() {
             m.getParameter("_houseFee", env.HOUSE_FEE),
             m.getParameter("_roundMasterFee", env.ROUND_MASTER_FEE),
 
-            m.getParameter("_oracleRouter", env.ORACLE_FUNCTIONS_ROUTER),
+            m.getParameter("_oracleFunctionRouter", env.ORACLE_FUNCTIONS_ROUTER),
+            m.getParameter("_oracleAggregatorV3PriceFeed", env.ORACLE_AGGREGATOR_V3_PRICE_FEED),
+
             m.getParameter("_oracleDonID", env.ORACLE_DON_ID),
+
             m.getParameter("_oracleCallBackGasLimit", env.ORACLE_CALLBACK_GAS_LIMIT),
             m.getParameter("_oracleSubscriptionId", subscriptionId),
-            m.getParameter("_oracleAggregatorV3PriceFeed", env.ORACLE_AGGREGATOR_V3_PRICE_FEED)
+
+            m.getParameter("_oracleDonHostedSecretsSlotID", env.ORACLE_SECRETS_DON_HOSTED_SECRETS_SLOT_ID),
+
+            m.getParameter("_oracleDonHostedSecretsVersion", donHostedSecretsVersion)
         ]);
 
         return { aiPredictionV1 };
@@ -64,13 +71,11 @@ async function main() {
     });
     console.log(`✅ Contract added to Subscription ID:${subscriptionId} - tx hash: ${addConsumerTxReceipt.transactionHash} \n`);
 
-    const { version } = await uploadSecretsToDON(_connections)
-
     await subscriptionFunding(subscriptionId, _connections);
 
     console.log(`------------Deployment-Info------------`);
     console.log(`contract address: ${aiPredictionV1Address}`)
-    console.log(`secrets version:${version}`);
+    console.log(`secrets version:${donHostedSecretsVersion}`);
     console.log(`subscription ID: ${subscriptionId}`);
 
 }

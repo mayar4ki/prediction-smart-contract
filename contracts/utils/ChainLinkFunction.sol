@@ -4,6 +4,9 @@
 pragma solidity >=0.8.2 <0.9.0;
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
+import "./InlineJavaScript.sol";
 
 struct FunctionsCoordinatorConfig {
     uint16 maxConsumersPerSubscription; // ═════════╗ Maximum number of consumers which can be added to a single subscription. This bound ensures we are able to loop over all subscription consumers as needed, without exceeding gas limits. Should a user require more consumers, they can use multiple subscriptions.
@@ -19,25 +22,84 @@ interface IFunctionsCoordinator {
     function getConfig() external view returns (FunctionsCoordinatorConfig memory);
 }
 
-contract ChainLinkRequestFeeEstimator {
+abstract contract ChainLinkFunction is FunctionsClient {
     AggregatorV3Interface public immutable dataFeed;
     IFunctionsCoordinator public immutable coordinator;
 
+    bytes32 public immutable donID;
+    uint32 public immutable callBackGasLimit;
+    uint64 public subscriptionId;
+
+    uint8 public immutable donHostedSecretsSlotID;
+    uint64 public immutable donHostedSecretsVersion;
+
+    using FunctionsRequest for FunctionsRequest.Request;
+
+    event NewOracleSubscriptionId(uint64 newId);
+
     /**
-     * @param _oracleRouter The address of the Functions Oracle Router contract
+     * @param _functionRouter The address of the Functions Oracle Router contract
      * @param _aggregatorV3PriceFeed The address of the Chainlink Price Feed contract for LINK/ETH
+     * @param _donID: DON ID - Check to get the donID for your supported network https://docs.chain.link/chainlink-functions/supported-networks
+     * @param _callBackGasLimit: Callback function for fulfilling a request
+     * @param _subscriptionId: The ID for the Chainlink subscription
+     * @param _donHostedSecretsSlotID Don hosted secrets slotId
+     * @param _donHostedSecretsVersion Don hosted secrets version
      */
-    constructor(address _oracleRouter, address _aggregatorV3PriceFeed) {
-        coordinator = IFunctionsCoordinator(_oracleRouter);
+    constructor(
+        address _functionRouter,
+        address _aggregatorV3PriceFeed,
+        bytes32 _donID,
+        uint32 _callBackGasLimit,
+        uint64 _subscriptionId,
+        uint8 _donHostedSecretsSlotID,
+        uint64 _donHostedSecretsVersion
+    ) FunctionsClient(_functionRouter) {
+        coordinator = IFunctionsCoordinator(_functionRouter);
         dataFeed = AggregatorV3Interface(_aggregatorV3PriceFeed);
+
+        donID = _donID;
+        callBackGasLimit = _callBackGasLimit;
+        subscriptionId = _subscriptionId;
+
+        donHostedSecretsSlotID = _donHostedSecretsSlotID;
+        donHostedSecretsVersion = _donHostedSecretsVersion;
+    }
+
+    /**
+     * @notice Set new oracleSubscriptionId
+     * @dev Callable by admin
+     */
+    function _setOracleSubscriptionId(uint64 _oracleSubscriptionId) internal virtual {
+        require(_oracleSubscriptionId != 0, "invalid id");
+        subscriptionId = _oracleSubscriptionId;
+        emit NewOracleSubscriptionId(subscriptionId);
+    }
+
+    /**
+     * @notice Sends an HTTP request
+     * @param args The arguments to pass to the HTTP request
+     * @return requestId The ID of the request
+     */
+    function sendRequest(string[] memory args) internal returns (bytes32 requestId) {
+        FunctionsRequest.Request memory req;
+
+        req.initializeRequestForInlineJavaScript(InlineJavaScript.code); // Initialize the request with JS code
+
+        req.setArgs(args); // Set the arguments for the request
+
+        req.addDONHostedSecrets(donHostedSecretsSlotID, donHostedSecretsVersion);
+
+        // Send the request and store the reference ID
+        bytes32 ref = _sendRequest(req.encodeCBOR(), subscriptionId, callBackGasLimit, donID);
+        return ref;
     }
 
     /**
      * @notice Estimates the LINK fee for a request
-     * @param callbackGasLimit The gas limit for the callback function
      * @return fee The estimated ETH fee
      */
-    function estimateFee(uint256 callbackGasLimit) public view returns (uint256 fee) {
+    function estimateFee() public view returns (uint256 fee) {
         uint32 fulfillmentGasPrice = _getFulfillmentGasPrice();
         uint256 gasOverheadInJuels = _getRouterAdminFees();
 
@@ -51,7 +113,7 @@ contract ChainLinkRequestFeeEstimator {
         uint256 overestimatedGasPrice = (baseFeeGwei * 120) / 100; // 20% buffer e.g. 36 Gwei
 
         // 1 - Calculate the total gas cost (gwei): Gas price x (Gas overhead + Callback gas)
-        uint256 totalGasCost = overestimatedGasPrice * (gasOverheadInGwei + callbackGasLimit);
+        uint256 totalGasCost = overestimatedGasPrice * (gasOverheadInGwei + callBackGasLimit);
 
         // 3 - The premium fee was converted from USD to LINK at the time of the request.
         // Add this converted premium fee to get the total cost of a request:

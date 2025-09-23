@@ -6,29 +6,15 @@ pragma solidity >=0.8.2 <0.9.0;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
-import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {BytesLib} from "./utils/BytesLib.sol";
 
-import {ChainLinkRequestFeeEstimator} from "./utils/ChainLinkRequestFeeEstimator.sol";
-import {JavascriptSource} from "./utils/JavascriptSource.sol";
+import {ChainLinkFunction} from "./utils/ChainLinkFunction.sol";
 import {AntiContractGuard} from "./utils/AntiContractGuard.sol";
 import {AdminACL} from "./utils/AdminACL.sol";
 
-contract AiPredictionV1 is
-    ReentrancyGuard,
-    AntiContractGuard,
-    AdminACL,
-    FunctionsClient,
-    JavascriptSource,
-    ChainLinkRequestFeeEstimator
-{
+contract AiPredictionV1 is ReentrancyGuard, AntiContractGuard, AdminACL, ChainLinkFunction {
     using SafeERC20 for IERC20;
-    using FunctionsRequest for FunctionsRequest.Request;
-
-    bytes32 public immutable oracleDonID;
-    uint32 public immutable oracleCallBackGasLimit;
-    uint64 public oracleSubscriptionId;
 
     struct RequestInfo {
         bool exists;
@@ -78,7 +64,6 @@ contract AiPredictionV1 is
     event BetNo(address indexed sender, uint256 indexed roundId, uint256 amount);
 
     event NewOperationFees(uint256 houseFee, uint256 roundMasterFee);
-    event NewOracleSubscriptionId(uint64 newId);
     event NewMinBetAmount(uint256 minBetAmount);
 
     event ClaimRounds(uint256[] roundIds, uint256 amount);
@@ -95,16 +80,17 @@ contract AiPredictionV1 is
      * @notice Constructor
      * @param _ownerAddress: owner address
      * @param _adminAddress: admin address
-     *
      * @param _minBetAmount: minimum bet amounts (in wei)
      * @param _houseFee: house fee
      * @param _roundMasterFee: round creator fee
-     *
-     * @param _oracleRouter: Check to get the router address for your supported network https://docs.chain.link/chainlink-functions/supported-networks
+     * ==================== ChainLink params ====================
+     * @param _oracleFunctionRouter: Check to get the router address for your supported network https://docs.chain.link/chainlink-functions/supported-networks
+     * @param _oracleAggregatorV3PriceFeed: LINK/ETH price feed address - Check to get the price feed address for your supported network https://docs.chain.link/data-feeds/price-feeds/addresses
      * @param _oracleDonID: DON ID - Check to get the donID for your supported network https://docs.chain.link/chainlink-functions/supported-networks
      * @param _oracleCallBackGasLimit: Callback function for fulfilling a request
      * @param _oracleSubscriptionId: The ID for the Chainlink subscription
-     * @param _oracleAggregatorV3PriceFeed: LINK/ETH price feed address - Check to get the price feed address for your supported network https://docs.chain.link/data-feeds/price-feeds/addresses
+     * @param _oracleDonHostedSecretsSlotID Don hosted secrets slotId
+     * @param _oracleDonHostedSecretsVersion Don hosted secrets version
      */
     constructor(
         address _ownerAddress,
@@ -112,23 +98,29 @@ contract AiPredictionV1 is
         uint256 _minBetAmount,
         uint256 _houseFee,
         uint256 _roundMasterFee,
-        address _oracleRouter,
+        address _oracleFunctionRouter,
+        address _oracleAggregatorV3PriceFeed,
         bytes32 _oracleDonID,
         uint32 _oracleCallBackGasLimit,
         uint64 _oracleSubscriptionId,
-        address _oracleAggregatorV3PriceFeed
+        uint8 _oracleDonHostedSecretsSlotID,
+        uint64 _oracleDonHostedSecretsVersion
     )
         AdminACL(_ownerAddress, _adminAddress)
-        FunctionsClient(_oracleRouter)
-        ChainLinkRequestFeeEstimator(_oracleRouter, _oracleAggregatorV3PriceFeed)
+        ChainLinkFunction(
+            _oracleFunctionRouter,
+            _oracleAggregatorV3PriceFeed,
+            _oracleDonID,
+            _oracleCallBackGasLimit,
+            _oracleSubscriptionId,
+            _oracleDonHostedSecretsSlotID,
+            _oracleDonHostedSecretsVersion
+        )
     {
         require(_legitFees(_houseFee, _roundMasterFee), "fee too high");
         minBetAmount = _minBetAmount;
         houseFee = _houseFee;
         roundMasterFee = _roundMasterFee;
-        oracleDonID = _oracleDonID;
-        oracleCallBackGasLimit = _oracleCallBackGasLimit;
-        oracleSubscriptionId = _oracleSubscriptionId;
     }
 
     /**
@@ -156,9 +148,7 @@ contract AiPredictionV1 is
      * @dev Callable by admin
      */
     function setOracleSubscriptionId(uint64 _oracleSubscriptionId) external whenPaused onlyAdmin {
-        require(_oracleSubscriptionId != 0, "invalid id");
-        oracleSubscriptionId = _oracleSubscriptionId;
-        emit NewOracleSubscriptionId(oracleSubscriptionId);
+        _setOracleSubscriptionId(_oracleSubscriptionId);
     }
 
     /**
@@ -174,7 +164,7 @@ contract AiPredictionV1 is
     ) external payable whenNotPaused notContract nonReentrant {
         require(_lockTimestamp < _closeTimestamp, "invalid timestamp");
         require(bytes(_prompt).length > 0, "prompt required");
-        uint256 weiRoundCost = estimateFee(uint256(oracleCallBackGasLimit)) * 1e9; // estimate cost with 300k gas limit
+        uint256 weiRoundCost = estimateFee() * 1e9; // estimate cost with 300k gas limit
         weiRoundCost = (weiRoundCost * 110) / 100; // add 10% extra gas to be sure
         require(msg.value >= weiRoundCost, "oracle fee not covered");
 
@@ -353,29 +343,6 @@ contract AiPredictionV1 is
     }
 
     /**
-     * @notice Sends an HTTP request
-     * @param args The arguments to pass to the HTTP request
-     * @return requestId The ID of the request
-     */
-    function sendRequest(string[] memory args) internal returns (bytes32 requestId) {
-        FunctionsRequest.Request memory req;
-        req.initializeRequestForInlineJavaScript(javascriptSourceCode); // Initialize the request with JS code
-        req.setArgs(args); // Set the arguments for the request
-        // Send the request and store the reference ID
-        bytes32 ref = _sendRequest(req.encodeCBOR(), oracleSubscriptionId, oracleCallBackGasLimit, oracleDonID);
-        return ref;
-    }
-
-    function bytesToBytes32(bytes memory source) internal pure returns (bytes32 result) {
-        if (source.length == 0) {
-            return 0x0;
-        }
-        assembly {
-            result := mload(add(source, 32))
-        }
-    }
-
-    /**
      * @notice Callback function for fulfilling a request, Either response or error parameter will be set, but never both
      * @param requestId The ID of the request to fulfill
      * @param response The HTTP response data
@@ -399,7 +366,7 @@ contract AiPredictionV1 is
         if (err.length > 0) {
             round.err = err; // In case of error, store the error
         } else {
-            round.result = bytesToBytes32(response); // Proceed with response it
+            round.result = BytesLib.bytesToBytes32(response); // Proceed with response it
         }
 
         // *******calculating results********
