@@ -60,6 +60,8 @@ contract AiPredictionV1 is ChainLinkFunction, ReentrancyGuard, AntiContractGuard
         bytes err;
     }
 
+    event CreateNewRound(address indexed master, uint256 indexed roundId);
+
     event BetYes(address indexed sender, uint256 indexed roundId, uint256 amount);
     event BetNo(address indexed sender, uint256 indexed roundId, uint256 amount);
 
@@ -178,6 +180,8 @@ contract AiPredictionV1 is ChainLinkFunction, ReentrancyGuard, AntiContractGuard
 
         houseBalance += weiRoundCost;
         roundIdCounter++;
+
+        emit CreateNewRound(round.master, round.id);
     }
 
     /**
