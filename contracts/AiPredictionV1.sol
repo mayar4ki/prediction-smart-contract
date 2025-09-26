@@ -496,4 +496,30 @@ contract AiPredictionV1 is ChainLinkFunction, ReentrancyGuard, AntiContractGuard
 
         return (roundsPayload, betsPayload, cursor + length);
     }
+
+    /**
+     * @notice Returns all rounds
+     * @param user: wanted user address bets
+     * @param ids: ids of wanted rounds
+     */
+    function pickRounds(
+        address user,
+        uint256[] calldata ids
+    ) external view returns (Round[] memory, BetInfo[] memory, uint256) {
+        uint256 length = ids.length;
+
+        if (length > roundIdCounter) {
+            length = roundIdCounter;
+        }
+
+        Round[] memory roundsPayload = new Round[](length);
+        BetInfo[] memory betsPayload = new BetInfo[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            roundsPayload[i] = roundsLedger[i];
+            betsPayload[i] = betsLedger[i][user];
+        }
+
+        return (roundsPayload, betsPayload, length);
+    }
 }
