@@ -1,7 +1,7 @@
-
 # Hardhat 3 Beta Project (`node:test` and `viem`)
 
 ## AI Prediction Smart Contract
+
 A decentralized AI prediction platform built on Ethereum using Chainlink Functions to enable secure and transparent AI-powered predictions on-chain.
 
 ## Environment Setup
@@ -9,6 +9,7 @@ A decentralized AI prediction platform built on Ethereum using Chainlink Functio
 The project uses environment files for configuration. A template file `.env.example` is provided with all required and optional parameters.
 
 Required Parameters:
+
 - `OWNER_ADDRESS` - The address that will own the contract
 - `ADMIN_ADDRESS` - The address that will have admin privileges
 - `CHAIN_RPC_URL` - RPC URL of the network (e.g., Ethereum Sepolia)
@@ -16,6 +17,7 @@ Required Parameters:
 - `ACCOUNT_PRIVATE_KEY` - Your wallet's private key for deployment
 
 Chainlink Configuration:
+
 - `ORACLE_ENCRYPTED_SECRETS_UPLOAD_ENDPOINTS` - Comma-separated list of Chainlink Functions gateway endpoints
 - `ORACLE_FUNCTIONS_ROUTER` - Chainlink Functions Router address for your network
 - `ORACLE_DON_ID` - Chainlink DON ID for your network (hex format)
@@ -25,16 +27,19 @@ Chainlink Configuration:
 - `ORACLE_SUBSCRIPTION_INITIAL_FUND` - Initial fund amount for Chainlink subscription in LINK
 
 Game Configuration (with defaults):
+
 - `MIN_BET_AMOUNT` - Minimum bet amount in ETH (default: 0.01 ETH)
 - `HOUSE_FEE` - House fee in basis points (default: 100 = 1%)
 - `ROUND_MASTER_FEE` - Round master fee in basis points (default: 200 = 2%)
 - `ORACLE_CALLBACK_GAS_LIMIT` - Gas limit for oracle callback (default: 300000)
 
 API Keys:
+
 - `ETHERSCAN_API_KEY` - Your Etherscan API key for contract verification
 - `OPEN_AI_API_KEY` - Your OpenAI API key for AI predictions
 
 To set up your environment:
+
 1. Copy `.env.example` to `.env.eth.sepolia` for Sepolia deployment
 2. Copy `.env.example` to `.env.avax.testnet` for Avalanche Fuji deployment
 3. Fill in the required parameters in the respective environment file
@@ -64,6 +69,7 @@ All deployment-related scripts use environment variables from `.env.eth.sepolia`
 This project implements a smart contract system that allows users to interact with AI models through blockchain technology. It uses Chainlink Functions to securely bridge the gap between on-chain and off-chain AI computations.
 
 Key Features:
+
 - Smart contract-based prediction system
 - Integration with Chainlink Functions for off-chain AI computations
 - Admin access control system
@@ -99,27 +105,32 @@ Key Features:
 ### Local Setup
 
 1. Clone the repository
+
 ```bash
 git clone https://github.com/mayar4ki/prediction.git
 cd prediction
 ```
 
 2. Install dependencies
+
 ```bash
 yarn install
 ```
 
 3. Set up your environment variables
+
 ```bash
 cp .env.example .env.local
 ```
 
 4. Start local hardhat node
+
 ```bash
 yarn hardhat node
 ```
 
 5. Deploy contracts locally
+
 ```bash
 yarn deploy:local
 ```
@@ -127,11 +138,13 @@ yarn deploy:local
 ### Testing
 
 Run the test suite:
+
 ```bash
 yarn test
 ```
 
 Run coverage report:
+
 ```bash
 yarn coverage
 ```
@@ -161,7 +174,5 @@ Contributions are welcome! Please follow these steps:
 ## License
 
 Copyright © 2025 mayar4ki. All Rights Reserved.
-
-This project and its source code are proprietary and confidential. No part of this project may be reproduced, distributed, or transmitted in any form or by any means, without the prior written permission of the copyright holder.
 
 Unauthorized copying, modification, distribution, or use of this software is strictly prohibited.
