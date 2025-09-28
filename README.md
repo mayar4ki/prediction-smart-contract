@@ -1,5 +1,23 @@
 # Hardhat 3 Beta Project (`node:test` and `viem`)
 
+## How the front-end look like
+
+<p align="center">   
+<img width="45%" alt="image" src="https://github.com/user-attachments/assets/43cd040d-5fef-4288-9c66-4565d77aeabe" />
+<img width="45%" alt="image" src="https://github.com/user-attachments/assets/9fc8a52c-aeca-46b2-b280-b946e2d8ee66" />
+</p>
+
+<p align="center">   
+<img width="45%" alt="Screenshot 2025-09-28 163937" src="https://github.com/user-attachments/assets/e5884595-fe5e-4f8f-97c4-6094c0642712" />
+<img width="45%" alt="Screenshot 2025-09-28 153730" src="https://github.com/user-attachments/assets/5d172353-6c94-4fab-9590-b396ee7b06d3" />
+</p>
+
+<p align="center">   
+<img width="45%" alt="Screenshot 2025-09-28 153652" src="https://github.com/user-attachments/assets/8780aa31-bb22-4216-8ac9-ddd836f65d2f" />
+<img  width="45%" alt="image" src="https://github.com/user-attachments/assets/de90e818-d36d-42d7-b616-9911c276494b" />
+</p>
+
+
 ## AI Prediction Smart Contract
 
 A decentralized AI prediction platform built on Ethereum using Chainlink Functions to enable secure and transparent AI-powered predictions on-chain.
