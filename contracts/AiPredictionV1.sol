@@ -154,6 +154,14 @@ contract AiPredictionV1 is ChainLinkFunction, ReentrancyGuard, AntiContractGuard
     }
 
     /**
+     * @notice Set new donHostedSecretsVersion
+     * @dev Callable by admin
+     */
+    function setOracleDonHostedSecretsVersion(uint64 _donHostedSecretsVersion) external whenPaused onlyAdmin {
+        _setOracleDonHostedSecretsVersion(_donHostedSecretsVersion);
+    }
+
+    /**
      * @notice Create a new betting round
      * @param _prompt: prompt for the round
      * @param _lockTimestamp: time bet will stop at (unix)
@@ -516,8 +524,8 @@ contract AiPredictionV1 is ChainLinkFunction, ReentrancyGuard, AntiContractGuard
         BetInfo[] memory betsPayload = new BetInfo[](length);
 
         for (uint256 i = 0; i < length; i++) {
-            roundsPayload[i] = roundsLedger[i];
-            betsPayload[i] = betsLedger[i][user];
+            roundsPayload[i] = roundsLedger[ids[i]];
+            betsPayload[i] = betsLedger[ids[i]][user];
         }
 
         return (roundsPayload, betsPayload, length);

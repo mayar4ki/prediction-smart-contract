@@ -31,11 +31,12 @@ abstract contract ChainLinkFunction is FunctionsClient {
     uint64 public subscriptionId;
 
     uint8 public immutable donHostedSecretsSlotID;
-    uint64 public immutable donHostedSecretsVersion;
+    uint64 public donHostedSecretsVersion;
 
     using FunctionsRequest for FunctionsRequest.Request;
 
     event NewOracleSubscriptionId(uint64 newId);
+    event NewOracleDonSecretsVersion(uint64 newId);
 
     /**
      * @param _functionRouter The address of the Functions Oracle Router contract
@@ -74,6 +75,15 @@ abstract contract ChainLinkFunction is FunctionsClient {
         require(_oracleSubscriptionId != 0, "invalid id");
         subscriptionId = _oracleSubscriptionId;
         emit NewOracleSubscriptionId(subscriptionId);
+    }
+
+    /**
+     * @notice Set new donHostedSecretsVersion
+     * @dev Callable by admin
+     */
+    function _setOracleDonHostedSecretsVersion(uint64 _donHostedSecretsVersion) internal virtual {
+        donHostedSecretsVersion = _donHostedSecretsVersion;
+        emit NewOracleDonSecretsVersion(donHostedSecretsVersion);
     }
 
     /**
